@@ -3,8 +3,8 @@ package com.example.demo.service;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +45,6 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleCalculator scheduleCalculator;
 
     private static final Logger logger = LoggerFactory.getLogger(ScheduleServiceImpl.class);
-
 
     @Override
     public List<ResultSchedule> doQuery(String region) {
@@ -138,12 +137,10 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 當前日期
         LocalDate currentDate = null;
 
-        //休假建立方法單純處理，就把Join砍掉減少複雜度
-        //判斷假設有休假的話，就把雙邊跑的人員補上去
-        
-        
-        for (ArrayList<LocalDate> start_end : dayOfWeekMap.values()) {
+        // 休假建立方法單純處理，就把Join砍掉減少複雜度
+        // 判斷假設有休假的話，就把雙邊跑的人員補上去
 
+        for (ArrayList<LocalDate> start_end : dayOfWeekMap.values()) {
 
             // set2.醫師班表
             LocalDate startDate = start_end.get(0);
@@ -151,6 +148,8 @@ public class ScheduleServiceImpl implements ScheduleService {
             List<LeaveSchedule> leaves = leaveScheduleRepository.findByLeaveDateBetween(startDate, endDate, region);
 
             for (LeaveSchedule doctorLeave : leaves) {
+
+                // logger.warn("日期={},ID={}",doctorLeave.getKey().getDate(),doctorLeave.getKey().getId());
 
                 if (currentDate == null) {
                     // 當月第一天
@@ -196,15 +195,22 @@ public class ScheduleServiceImpl implements ScheduleService {
             amDTO = new ScheduleDTO();
             pmDTO = new ScheduleDTO();
             nightDTO = new ScheduleDTO();
+            // 1. 先取得該月的最後一天
+            LocalDate lastDayOfMonth = currentDate.with(TemporalAdjusters.lastDayOfMonth());
 
-            processAndSaveDailySchedule(currentDate,
-                    region,
-                    amDTO,
-                    pmDTO,
-                    nightDTO,
-                    amDrOnDutyList,
-                    pmDrOnDutyList,
-                    nightDrOnDutyList);
+            // 2. 從該月的最後一天，往回找最接近的禮拜六
+            LocalDate lastSaturday = lastDayOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY));
+
+            if (currentDate.isEqual(lastSaturday)) {
+                processAndSaveDailySchedule(currentDate,
+                        region,
+                        amDTO,
+                        pmDTO,
+                        nightDTO,
+                        amDrOnDutyList,
+                        pmDrOnDutyList,
+                        nightDrOnDutyList);
+            }
         }
     }
 
@@ -268,16 +274,21 @@ public class ScheduleServiceImpl implements ScheduleService {
         /*-----------------
          | 早午班排班邏輯   |
          ------------------*/
+        if (currentDate.toString().equals("2025-08-28")) {
+            System.out.println("");
+        }
 
         // 早午班員工List
         List<Assistants> amAssisList = assistantFinder.findByDayAndShift(
-                currentDate.getDayOfWeek(),
-                ShiftEnum.MORNING_AFTERNOON.getCode(), region + "%");
+                currentDate,
+                ShiftEnum.MORNING_AFTERNOON.getCode(), 168, region + "%");
 
         for (Assistants a : amAssisList) {
             System.out.println(
                     a.getName() + "," + a.getRegion() + "," + a.getTotalHours() + "," + a.getPrecedence());
         }
+
+        scheduleCalculator.removeAssistantLeave(amAssisList, ShiftEnum.MORNING_AFTERNOON, amDTO.getDate());// 刪除休假員工
 
         // 計算支援人數 ex:早午固定1個，需要3個，需補2個早午晚人力，如果是負數代表當天不用上班(禮拜一早)
         int remaining = calculation(amDrOnDutyList.size())[1] - amAssisList.size();
@@ -285,26 +296,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         // amAssisList(早班早午人力) < 早班總人力 ex: 2位醫師[121] = 4人
         if (amAssisList.size() < calculation(amDrOnDutyList.size())[1]) {
             // 早班不夠人群求替補
-            List<Assistants> shuffleAssistanList = assistantFinder.findByDayAndShift(
-                    currentDate.getDayOfWeek(),
-                    ShiftEnum.FULL.getCode(), region+ "%");
-            LocalDate yesterdayDate = currentDate.minusDays(1);
-            // 如果昨天有上全的早班就不排
-            shuffleAssistanList.removeIf(assistan -> resultScheduleRepository
-                    .countByIsAllDay(assistan.getName(), yesterdayDate.toString()) == 3);
-            // 可支援人數邏輯
-            Collections.shuffle(shuffleAssistanList);
-            if (shuffleAssistanList.size() > remaining && remaining > 0) {
-                amAssisList.addAll(shuffleAssistanList.subList(0, remaining));
-            } else if (shuffleAssistanList.size() < remaining) {
-                amAssisList.addAll(shuffleAssistanList.subList(0, shuffleAssistanList.size()));
-            }
-            // 需要3人 1人支援 3 7
-            // if(remaining>shuffleAssistanList.size())
-            if (remaining > shuffleAssistanList.size()) {
-                int test = remaining - shuffleAssistanList.size();
-                System.out.println("需要竹北支援=" + test);
-            }
+            findSupporAssistants(amAssisList, currentDate, remaining, region);
         }
         System.out.println("DEBUG=" + currentDate);
 
@@ -320,13 +312,13 @@ public class ScheduleServiceImpl implements ScheduleService {
         /*---------------------
          | 晚班排班邏輯  (先優) |
          ---------------------*/
-         
-        //統整午班跟晚班總人數
+
+        // 統整午班跟晚班總人數
         int[] pmNightArray = new int[3];
         // 晚班員工
         List<Assistants> nightDayAssisList = assistantFinder.findByDayAndShift(
-                currentDate.getDayOfWeek(),
-                ShiftEnum.NIGHT.getCode(),  region);
+                currentDate,
+                ShiftEnum.NIGHT.getCode(), 168, region);
 
         // 優先排單診晚班員工
         scheduleCalculator.singleSchedulingLogic(
@@ -341,10 +333,9 @@ public class ScheduleServiceImpl implements ScheduleService {
          ----------------------------*/
         // 午晚班員工
         List<Assistants> pmDayAssisList = assistantFinder.findByDayAndShift(
-                currentDate.getDayOfWeek(),
-                ShiftEnum.AFTERNOON_NIGHT.getCode(),  region );
+                currentDate,
+                ShiftEnum.AFTERNOON_NIGHT.getCode(), 168, region);
 
-        
         nightWorkArray = handleWorkArray(nightWorkArray);
         // 次先排固定午晚班員工
         pmNightArray = scheduleCalculator.nightSchedulingLogic(
@@ -361,10 +352,13 @@ public class ScheduleServiceImpl implements ScheduleService {
          | 全班排班邏輯   |
          ------------------*/
         // 最後在排早午晚員工List
+
         List<Assistants> allDayAssisList;
         allDayAssisList = assistantFinder.findByDayAndShift(
-                currentDate.getDayOfWeek(),
-                ShiftEnum.FULL.getCode(), region + "%");
+                currentDate,
+                ShiftEnum.FULL.getCode(), 168, region + "%");
+        scheduleCalculator.removeAssistantLeave(allDayAssisList, ShiftEnum.FULL, nightDTO.getDate());//
+        // 刪除休假員工
 
         // 補充剩餘人數，因可能午晚崗位不同，需獨立出來
         pmNightArray = scheduleCalculator.nightSchedulingLogic(
@@ -378,9 +372,11 @@ public class ScheduleServiceImpl implements ScheduleService {
                 nightDTO);
 
         // System.out.println(
-        //         pmDTO.getDate() + " 目前空缺=櫃台" + pmNightArray[0] + " ,跟診" + pmNightArray[1] + "流動" + pmNightArray[2]);
-        
-logger.warn("{}->{},目前空缺=櫃台{},跟診{},流動{}", region, pmDTO.getDate(), pmNightArray[0], pmNightArray[1], pmNightArray[2]);
+        // pmDTO.getDate() + " 目前空缺=櫃台" + pmNightArray[0] + " ,跟診" + pmNightArray[1] +
+        // "流動" + pmNightArray[2]);
+
+        logger.warn("{}->{},目前空缺=櫃台{},跟診{},流動{}", region, pmDTO.getDate(),
+        pmNightArray[0], pmNightArray[1], pmNightArray[2]);
         // 新增當日班表到資料庫
         insertResultData(region, currentDate, ShiftEnum.MORNING.getCode(), amDTO);
         insertResultData(region, currentDate, ShiftEnum.AFTERNOON.getCode(), pmDTO);
@@ -502,6 +498,40 @@ logger.warn("{}->{},目前空缺=櫃台{},跟診{},流動{}", region, pmDTO.getD
         return map;
     }
 
+    /*
+     * 找支援人力 (會刪除昨日上全班的人員)
+     * 
+     */
+    public void findSupporAssistants(List<Assistants> amAssisList, LocalDate currentDate, Integer remaining,
+            String region) {
+
+
+        List<Assistants> shuffleAssistanList = new ArrayList<>();
+        // 早班不夠人群求替補
+        shuffleAssistanList = assistantFinder.findByDayAndShift(
+                currentDate,
+                ShiftEnum.FULL.getCode(), 168, region + "%");
+        LocalDate yesterdayDate = currentDate.minusDays(1);
+        // 如果昨天有上全的早班就不排
+        shuffleAssistanList.removeIf(assistan -> resultScheduleRepository
+                .countByIsAllDay(assistan.getName(), yesterdayDate.toString()) == 3);
+        // Collections.shuffle(shuffleAssistanList);//隨機
+        if (shuffleAssistanList.size() >= remaining && remaining > 0) {
+            // 支援人數>需求人數
+            amAssisList.addAll(shuffleAssistanList.subList(0, remaining));
+        } else if (shuffleAssistanList.size() < remaining) {
+            // 支援人數<需求人數 (請跨區幫忙)
+            shuffleAssistanList = new ArrayList<>();
+            shuffleAssistanList = assistantFinder.findByDayAndShift(
+                    currentDate,
+                    ShiftEnum.FULL.getCode(), 168, "%" + region + "%");
+            // 如果昨天有上全的早班就不排
+            shuffleAssistanList.removeIf(assistan -> resultScheduleRepository
+                    .countByIsAllDay(assistan.getName(), yesterdayDate.toString()) == 3);
+            amAssisList.addAll(shuffleAssistanList.subList(0, shuffleAssistanList.size()));
+        }
+    }
+
     /**
      * 處理工作陣列：如果長度足夠且第一個元素為 0，則將前三個元素都設為 0
      */
@@ -516,6 +546,14 @@ logger.warn("{}->{},目前空缺=櫃台{},跟診{},流動{}", region, pmDTO.getD
         return workArray;
     }
 
+    public void checkAssistantData() {
+
+    }
+
+    /*
+     * 新增資料到畫面上
+     * 
+     */
     public void insertResultData(String region, LocalDate date, String shiftType, ScheduleDTO dto) {
 
         ResultSchedule resultDTO = new ResultSchedule();

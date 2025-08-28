@@ -1,6 +1,8 @@
 package com.example.demo.component;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Sort;
@@ -8,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.example.demo.jpa.Assistants;
 import com.example.demo.repository.AssistantRepository;
+import com.example.demo.repository.ResultScheduleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,30 +19,58 @@ import lombok.RequiredArgsConstructor;
 public class AssistantFinder {
 
     private final AssistantRepository assistantRepository;
+    private final ResultScheduleRepository resultScheduleRepository;
 
-    public List<Assistants> findByDayAndShift(DayOfWeek dayOfWeek, String shiftType, String region) {
+    public List<Assistants> findByDayAndShift(LocalDate localDate, String shiftType, Integer totalHours,
+            String region) {
+        // 是否降冪排序
+        Sort sort = region.contains("新竹") ? Sort.by(Sort.Order.desc("precedence"), Sort.Order.asc("totalHours"))
+                : Sort.by(Sort.Order.asc("precedence"), Sort.Order.asc("totalHours"));
 
-
-        //是否降冪排序
-        Sort sort= region.contains("新竹") ?  Sort.by(Sort.Order.desc("precedence"),Sort.Order.asc("totalHours") )
-        : Sort.by(Sort.Order.asc("precedence"),Sort.Order.asc("totalHours") );
-    
+        DayOfWeek dayOfWeek = localDate.getDayOfWeek();
+        String checkRegion = "新竹".equals(region) ? "竹北" : "新竹";
+        List<Assistants> assistants = new ArrayList<>();
 
         switch (dayOfWeek) {
             case MONDAY:
-                return assistantRepository.findByMondayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findByMondayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             case TUESDAY:
-                return assistantRepository.findByTuesdayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findByTuesdayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             case WEDNESDAY:
-                return assistantRepository.findByWednesdayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findByWednesdayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             case THURSDAY:
-                return assistantRepository.findByThursdayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findByThursdayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             case FRIDAY:
-                return assistantRepository.findByFridayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findByFridayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             case SATURDAY:
-                return assistantRepository.findBySaturdayWorkTime(shiftType, region, sort);
+                assistants = assistantRepository.findBySaturdayWorkTime(shiftType, region, totalHours, sort);
+                assistants.removeIf(assistant -> resultScheduleRepository.checkNameExist(localDate,
+                        checkRegion, "%" + assistant.getName() + "%"));
+
+                return assistants;
             default:
                 throw new IllegalArgumentException("無效的星期: " + dayOfWeek);
         }
     }
+
 }

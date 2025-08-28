@@ -1,8 +1,5 @@
 package com.example.demo.component;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.springframework.stereotype.Component;
 
 import com.example.demo.jpa.ResultSchedule;
@@ -37,7 +34,7 @@ public class ScheduleFormatter {
     public String format2(String shift, ResultSchedule dto) {
         return String.format(TEMPLATE_132,
                 shift,
-                dto.getFrontDesk1(),
+                dto.getFrontDesk1()+dto.getFrontDesk2(),
                 dto.getChairsideName1(),
                 dto.getDoctorName1(),
                 dto.getChairsideName2(),

@@ -15,11 +15,11 @@ import com.example.demo.jpa.LeaveScheduleKey;
 @Repository
 public interface LeaveScheduleRepository extends JpaRepository<LeaveSchedule, LeaveScheduleKey> {
 
-@Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
+    @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
     List<LeaveSchedule> findByLeaveDateBetween(@Param("startDate") LocalDate startDate, 
                                                @Param("endDate") LocalDate endDate,
                                                @Param("region") String region);
 
+    List<LeaveSchedule> findByKey(LeaveScheduleKey key);
 
-    
 }
