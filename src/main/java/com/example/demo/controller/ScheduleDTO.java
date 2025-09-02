@@ -1,7 +1,9 @@
 package com.example.demo.controller;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ScheduleDTO {
 
@@ -10,19 +12,21 @@ public class ScheduleDTO {
     private List<String> frontDesks = new ArrayList<>(); // 櫃台
     private List<String> chairsides = new ArrayList<>();; // 跟診助理
     private List<String> floaters = new ArrayList<>();; // 流動
-    //上全的人
+    private Map<Integer, String> suppors = new HashMap<>(); // 不熟新人
+    // 上全的人
     //
 
     public ScheduleDTO() {
     }
 
     public ScheduleDTO(String date, List<String> doctors, List<String> frontDesks, List<String> chairsides,
-            List<String> floaters) {
+            List<String> floaters, Map<Integer, String> suppors) {
         this.date = date;
         this.doctors = doctors;
         this.frontDesks = frontDesks;
         this.chairsides = chairsides;
         this.floaters = floaters;
+        this.suppors = suppors;
     }
 
     public List<String> getDoctors() {
@@ -65,10 +69,18 @@ public class ScheduleDTO {
         this.date = date;
     }
 
+    public Map<Integer, String> getSuppors() {
+        return suppors;
+    }
+
+    public void setSuppors(Map<Integer, String> suppors) {
+        this.suppors = suppors;
+    }
+
     @Override
     public String toString() {
         return "ScheduleDTO [date=" + date + ", doctors=" + doctors + ", frontDesks=" + frontDesks + ", chairsides="
-                + chairsides + ", floaters=" + floaters + "]";
+                + chairsides + ", floaters=" + floaters + ", suppors=" + suppors + "]";
     }
 
 }

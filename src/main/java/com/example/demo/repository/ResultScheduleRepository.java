@@ -33,6 +33,23 @@ public interface ResultScheduleRepository extends JpaRepository<ResultSchedule, 
             """, nativeQuery = true)
     Long countByIsAllDay(@Param("searchString") String searchString, @Param("targetDate") String targetDate);
 
+        @Query(value = """
+            SELECT COUNT(*) FROM RESULT_SCHEDULE
+            WHERE (
+                CHAIRSIDE_NAME1 LIKE %:searchString% OR
+                CHAIRSIDE_NAME2 LIKE %:searchString% OR
+                CHAIRSIDE_NAME3 LIKE %:searchString% OR
+                FLOATER_NAME1 LIKE %:searchString% OR
+                FLOATER_NAME2 LIKE %:searchString% OR
+                FLOATER_NAME3 LIKE %:searchString% OR
+                FRONT_DESK1 LIKE %:searchString% OR
+                FRONT_DESK2 LIKE %:searchString% OR
+                FRONT_DESK3 LIKE %:searchString%
+            ) AND date BETWEEN :startDate AND :endDate
+            """, nativeQuery = true)
+    Long countWeeklyWork(@Param("searchString") String searchString, @Param("startDate") String startDate, @Param("endDate") String endDate);
+    
+
     @Query(value = "SELECT " +
             "CASE " +
             "    WHEN COUNT(*) > 0 THEN TRUE " +
@@ -47,7 +64,7 @@ public interface ResultScheduleRepository extends JpaRepository<ResultSchedule, 
             "        COALESCE(FLOATER_NAME1, ''), COALESCE(FLOATER_NAME2, ''), COALESCE(FLOATER_NAME3, ''), " +
             "        COALESCE(FRONT_DESK1, ''), COALESCE(FRONT_DESK2, ''), COALESCE(FRONT_DESK3, '')" +
             "    ) LIKE %:name%", nativeQuery = true)
-    boolean checkNameExist(
+    boolean checkRegionNameExist(
             @Param("date") LocalDate date,
             @Param("region") String region,
             @Param("name") String name);

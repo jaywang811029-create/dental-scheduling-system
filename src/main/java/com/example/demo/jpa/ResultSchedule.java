@@ -23,13 +23,13 @@ public class ResultSchedule {
     private String floaterName1;
     private String floaterName2;
     private String floaterName3;
+    private String supportName1;
+    private String supportName2;
 
-    
-
-    public ResultSchedule(ResultScheduleKey key, String doctorName1, String doctorName2,
-            String doctorName3, String frontDesk1, String frontDesk2, String frontDesk3, String chairsideName1,
-            String chairsideName2, String chairsideName3, String floaterName1, String floaterName2,
-            String floaterName3) {
+    public ResultSchedule(ResultScheduleKey key, String doctorName1, String doctorName2, String doctorName3,
+            String frontDesk1, String frontDesk2, String frontDesk3, String chairsideName1, String chairsideName2,
+            String chairsideName3, String floaterName1, String floaterName2, String floaterName3, String supportName1,
+            String supportName2) {
         this.key = key;
         this.doctorName1 = doctorName1;
         this.doctorName2 = doctorName2;
@@ -43,14 +43,28 @@ public class ResultSchedule {
         this.floaterName1 = floaterName1;
         this.floaterName2 = floaterName2;
         this.floaterName3 = floaterName3;
+        this.supportName1 = supportName1;
+        this.supportName2 = supportName2;
     }
-
-
 
     public ResultSchedule() {
     }
 
-    
+    public String getSupportName1() {
+        return supportName1;
+    }
+
+    public void setSupportName1(String supportName1) {
+        this.supportName1 = supportName1;
+    }
+
+    public String getSupportName2() {
+        return supportName2;
+    }
+
+    public void setSupportName2(String supportName2) {
+        this.supportName2 = supportName2;
+    }
 
     public String getDoctorName1() {
         return doctorName1;
@@ -164,21 +178,14 @@ public class ResultSchedule {
         this.frontDesk3 = frontDesk3;
     }
 
-
-
     @Override
     public String toString() {
         return "ResultSchedule [key=" + key + ", doctorName1=" + doctorName1 + ", doctorName2=" + doctorName2
                 + ", doctorName3=" + doctorName3 + ", frontDesk1=" + frontDesk1 + ", frontDesk2=" + frontDesk2
                 + ", frontDesk3=" + frontDesk3 + ", chairsideName1=" + chairsideName1 + ", chairsideName2="
                 + chairsideName2 + ", chairsideName3=" + chairsideName3 + ", floaterName1=" + floaterName1
-                + ", floaterName2=" + floaterName2 + ", floaterName3=" + floaterName3 + "]";
+                + ", floaterName2=" + floaterName2 + ", floaterName3=" + floaterName3 + ", supportName1=" + supportName1
+                + ", supportName2=" + supportName2 + "]";
     }
-
-
-
-
-    
-
 
 }

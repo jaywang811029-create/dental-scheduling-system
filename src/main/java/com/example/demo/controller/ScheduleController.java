@@ -29,7 +29,7 @@ public class ScheduleController {
         }
 
         @GetMapping("/event")
-        public List<Event> getEvents(@RequestParam(defaultValue = "新竹") String region) {
+        public List<Event> getEvents(@RequestParam(name = "region", defaultValue = "新竹") String region) {
                 List<Event> events = new ArrayList<>();
 
                 //執行排班功能

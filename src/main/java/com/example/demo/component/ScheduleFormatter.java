@@ -34,14 +34,14 @@ public class ScheduleFormatter {
     public String format2(String shift, ResultSchedule dto) {
         return String.format(TEMPLATE_132,
                 shift,
-                dto.getFrontDesk1()+dto.getFrontDesk2(),
+                dto.getFrontDesk1()+(dto.getSupportName1() == null ? "" : " "+dto.getSupportName1()),
                 dto.getChairsideName1(),
                 dto.getDoctorName1(),
                 dto.getChairsideName2(),
                 dto.getDoctorName2(),
                 dto.getChairsideName3(),
                 dto.getDoctorName3(),
-                dto.getFloaterName1(),
+                dto.getFloaterName1()+(dto.getSupportName2() == null ? "" : " "+dto.getSupportName2()),
                 dto.getFloaterName2());
 
     }

@@ -1,6 +1,5 @@
 package com.example.demo.repository;
 
-
 import java.time.LocalDate;
 import java.util.List;
 
@@ -20,6 +19,22 @@ public interface LeaveScheduleRepository extends JpaRepository<LeaveSchedule, Le
                                                @Param("endDate") LocalDate endDate,
                                                @Param("region") String region);
 
+
+    @Query(value = "SELECT COUNT(*) > 0 FROM (" +
+                   "SELECT " +
+                   "SUM(CASE WHEN LEAVE_ID LIKE 'D%' THEN LENGTH(SHIFT_TYPE) ELSE 0 END) + " +
+                   "SUM(CASE WHEN LEAVE_ID LIKE 'A%' THEN 1 ELSE 0 END) AS calculate_work_load " +
+                   "FROM LEAVE_SCHEDULE " +
+                   "WHERE REGION = :region AND DATE = :targetDate " +
+                   "GROUP BY DATE " +
+                   "HAVING calculate_work_load > :minWorkload) AS subquery",
+           nativeQuery = true)
+    boolean existsByHighWorkloadAndDate(
+        @Param("region") String region,
+        @Param("minWorkload") int minWorkload,
+        @Param("targetDate") LocalDate targetDate
+    );
+    
     List<LeaveSchedule> findByKey(LeaveScheduleKey key);
 
 }
