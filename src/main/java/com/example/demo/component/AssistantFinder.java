@@ -28,6 +28,7 @@ public class AssistantFinder {
                 : Sort.by(Sort.Order.asc("precedence"), Sort.Order.asc("totalHours"));
         return findByDayAndShift(localDate, shiftType, totalHours,
                 region, defaultSort);
+                
     }
 
     public List<Assistants> findByDayAndShift(LocalDate localDate, String shiftType, Integer totalHours,

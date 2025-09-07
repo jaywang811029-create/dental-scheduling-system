@@ -18,18 +18,6 @@ public class ScheduleFormatter {
             流動：%s
             """;
 
-    // 121
-    private static final String TEMPLATE_121 = "　　　　　%s班\n\n" +
-            "櫃台：%s\n" +
-            "跟診：%s　　｜%s\n" +
-            "跟診：%s　　｜%s　　　\n" +
-            "流動：%s";
-
-    // 111
-    private static final String TEMPLATE_111 = "　　　　　%s班\n\n" +
-            "櫃台：%s\n" +
-            "跟診：%s　　｜%s\n" +
-            "流動 : %s\n";
 
     public String format2(String shift, ResultSchedule dto) {
         return String.format(TEMPLATE_132,

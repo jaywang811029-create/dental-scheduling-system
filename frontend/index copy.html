@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>牙科排班行事曆</title>
+
+  <!-- FullCalendar 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.js"></script>
+
+  <style>
+    body {
+      margin: 40px 10px;
+      padding: 0;
+      font-family: "微軟正黑體", "Arial", Helvetica Neue, Helvetica, sans-serif;
+      font-size: 15px;
+      background: #f0f4f8;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 700;
+      font-size: 2.6rem;
+      margin-bottom: 15px;
+      color: #206a5d;
+      letter-spacing: 1px;
+    }
+
+    #btnGroup {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    #btnGroup button {
+      background-color: #3b8d99;
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 8px 18px;
+      margin: 0 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      font-size: 1rem;
+    }
+
+    #btnGroup button:hover,
+    #btnGroup button:focus {
+      background-color: #2a6f7c;
+      outline: none;
+      box-shadow: 0 0 8px #2a6f7c;
+    }
+
+    #btnGroup button.active {
+      background-color: #1e4f54;
+      box-shadow: 0 0 12px #1e4f54;
+    }
+
+    #calendar {
+      max-width: 1500px;
+      margin: 0 auto 30px auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+      padding: 20px 30px;
+    }
+
+    .fc-event {
+      white-space: pre-line;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #000000 !important;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+    }
+
+    .fc-event.early {
+      background-color: #f08a5d;
+    }
+
+    .fc-event.noon {
+      background-color: #fbfbfb;
+    }
+
+    .fc-event.noon1 {
+      background-color: #231896;
+    }
+
+    .fc-event.noon2 {
+      background-color: #36d605;
+    }
+
+    .fc-event.night {
+      background-color: #6a2c70;
+    }
+
+    .fc-daygrid-event {
+      font-size: 0.85rem;
+    }
+
+    .fc-timegrid-event .fc-event-title {
+      color: #000000;
+      font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+      font-size: 0.85rem;
+    }
+
+    /* 隱藏 slotMaxTime 之後的空白 */
+    .fc-timegrid-slot-label:last-child+.fc-timegrid-slot {
+      display: none !important;
+    }
+
+    #notesTable {
+      max-width: 1500px;
+      margin: 0 auto 60px auto;
+      display: none;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 20px 30px;
+    }
+
+    #notesTable h3 {
+      margin-top: 0;
+      font-size: 1.3rem;
+      color: #206a5d;
+    }
+
+    #notesTable table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #notesTable th,
+    #notesTable td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+
+    #notesTable th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>麗緻排班系統</h1>
+
+  <div id="btnGroup">
+    <button id="btnZhubei" >竹北班表</button>
+    <button id="btnHsinchu"  class="active">新竹班表</button>
+  </div>
+
+  <div id="calendar"></div>
+
+  <!-- 備註表格區塊 -->
+  <div id="notesTable">
+    <h3>備註表格</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>備註</th>
+        </tr>
+      </thead>
+      <tbody id="notesTableBody">
+        <!-- JavaScript 填入 -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var calendarEl = document.getElementById("calendar");
+
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: "dayGridMonth",
+        slotMinTime: "09:00:00",
+        slotMaxTime: "23:30:00",
+        displayEventTime: false,
+        locale: "zh-tw",
+        headerToolbar: {
+          left: "prev,next today",
+          center: "title",
+          right: "dayGridMonth,timeGridWeek"
+        },
+        events: [],
+
+        // 切換視圖時的回呼
+        datesSet: function (info) {
+          const viewType = info.view.type;
+          const notesTable = document.getElementById("notesTable");
+
+          if (viewType === 'timeGridWeek') {
+            notesTable.style.display = "block";
+            renderNotesTable();
+          } else {
+            notesTable.style.display = "none";
+          }
+        }
+      });
+
+      calendar.render();
+
+      // 產生備註表格
+      function renderNotesTable() {
+        const tbody = document.getElementById("notesTableBody");
+        tbody.innerHTML = "";
+
+        // 模擬備註資料（你可以改成從後端撈）
+        const notes = [
+          { date: "2025-08-04", note: "醫師A：牙周手術" },
+          { date: "2025-08-05", note: "醫師B：休假，助理支援櫃台" },
+          { date: "2025-08-06", note: "晚上增加一名助理" }
+        ];
+
+        notes.forEach(item => {
+          const tr = document.createElement("tr");
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = item.date;
+
+          const tdNote = document.createElement("td");
+          tdNote.textContent = item.note;
+
+          tr.appendChild(tdDate);
+          tr.appendChild(tdNote);
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      // 從後端載入事件資料
+      function loadEventsFromBackend(url) {
+        fetch(url)
+          .then(response => response.json())
+          .then(data => {
+            calendar.removeAllEvents();
+            calendar.addEventSource(data);
+            calendar.render();
+          })
+          .catch(error => {
+            console.error("載入事件失敗：", error);
+          });
+      }
+
+      loadEventsFromBackend("http://localhost:8080/event");
+
+      // 切換按鈕處理
+      var btnZhubei = document.getElementById("btnZhubei");
+      var btnHsinchu = document.getElementById("btnHsinchu");
+
+      function switchEventsFrom(url, activeBtn) {
+        loadEventsFromBackend(url);
+
+        btnZhubei.classList.remove("active");
+        btnHsinchu.classList.remove("active");
+        activeBtn.classList.add("active");
+      }
+
+        // 當點擊「竹北班表」按鈕時
+        btnZhubei.addEventListener("click", function () {
+            // 呼叫函式，載入 /event 端點的資料，並將竹北按鈕設為啟用
+            switchEventsFrom("http://localhost:8080/event?region=竹北", btnZhubei);
+        });
+
+        // 當點擊「新竹班表」按鈕時
+        btnHsinchu.addEventListener("click", function () {
+            // 呼叫函式，載入 /hsinchu 端點的資料，並將新竹按鈕設為啟用
+            switchEventsFrom("http://localhost:8080/event?region=新竹", btnHsinchu);
+        });
+    });
+  </script>
+
+</body>
+
+</html>

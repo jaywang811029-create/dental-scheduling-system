@@ -3,7 +3,6 @@ package com.example.demo.component;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,14 +45,6 @@ public class ScheduleCalculator {
             ScheduleDTO pmDTO,
             ScheduleDTO nightDTO) {
 
-        // logger.warn("刪除前人數{}", assistants.size());
-        // removeAssistantLeave(assistants,ShiftEnum.MORNING_AFTERNOON,amDTO.getDate());//
-        // 刪除休假員工
-        // logger.warn("刪除後人數{}", assistants.size());
-
-        System.out.println(amDTO.getDate() + " workArray=" + ampmWorkArray[0] + ampmWorkArray[1] + ampmWorkArray[2]
-                + "," + amWorkArray[2]);
-
         for (Assistants assistant : assistants) {
             // 如果是會櫃台，剛好又沒排人直接給他上櫃台
             if (assistant.isFrontDesk() && ampmWorkArray[0] >= 2) {
@@ -68,7 +59,6 @@ public class ScheduleCalculator {
             } else if (assistant.isChairside() && ampmWorkArray[1] >= 2
                     && amDTO.getChairsides().size() < amWorkArray[1]) {
                 // 若不會櫃台會跟診就去跟診
-
                 amDTO.getChairsides().add(assistant.getName());
                 pmDTO.getChairsides().add(assistant.getName());
                 ampmWorkArray[1] = ampmWorkArray[1] - 2;
@@ -91,22 +81,22 @@ public class ScheduleCalculator {
             boolean isEnoughCH = amDTO.getChairsides().size() < amWorkArray[1];
             boolean isEnoughFL = amDTO.getFloaters().size() < amWorkArray[2];
 
-            if (isEnoughFD) {
-                amDTO.getFrontDesks().add(assistant.getName() + "!");// 早班
+            if (assistant.isFrontDesk() &&isEnoughFD) {
+                amDTO.getFrontDesks().add(assistant.getName() + "!!");// 早班
                 ampmWorkArray[0] = ampmWorkArray[0] - 1;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
                 assistantRepository.save(assistant);
                 continue;
-            } else if (isEnoughCH) {
-                amDTO.getChairsides().add(assistant.getName() + "!");// 早班
+            } else if (assistant.isChairside() &&isEnoughCH) {
+                amDTO.getChairsides().add(assistant.getName() + "!!");// 早班
                 ampmWorkArray[1] = ampmWorkArray[1] - 1;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
                 assistantRepository.save(assistant);
                 continue;
-            } else if (isEnoughFL) {
-                amDTO.getFloaters().add(assistant.getName() + "!");// 早班
+            } else if (assistant.isFloater() &&isEnoughFL) {
+                amDTO.getFloaters().add(assistant.getName() + "!!");// 早班
                 ampmWorkArray[2] = ampmWorkArray[2] - 1;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
@@ -254,15 +244,16 @@ public class ScheduleCalculator {
                             assistantRepository.save(assistant);
                             continue;
 
-                        } else {
-                            nightDTO.getFrontDesks().add(assistant.getName());// 晚班櫃台
-                            pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
+                        } 
+                        // else {
+                        //     nightDTO.getFrontDesks().add(assistant.getName()+"-");// 晚班櫃台
+                        //     pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
 
-                            // 新增總時數
-                            assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
-                            assistantRepository.save(assistant);
-                            continue;
-                        }
+                        //     // 新增總時數
+                        //     assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        //     assistantRepository.save(assistant);
+                        //     continue;
+                        // }
                     }
 
                     // 如果早上沒班，中午有班，晚上沒班，處理午班不同崗位的人
@@ -273,6 +264,7 @@ public class ScheduleCalculator {
                         // 新增總時數
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
                         assistantRepository.save(assistant);
+
                         continue;
                     }
 
@@ -448,18 +440,10 @@ public class ScheduleCalculator {
         }
     }
 
-    public void test(Assistants assistant, ShiftEnum shiftType, String region) {
-
-        boolean isOnDuty = resultScheduleRepository.checkRegionNameExist(null, region, region);
-        if (isOnDuty) {
-        }
-
-    }
-
     /*
      * 過濾休假的人員，請誇區人員補上
      */
-    public void removeAssistantLeave(List<Assistants> assistants, ShiftEnum shiftType, LocalDate date, String region,
+    public void  removeAssistantLeave(List<Assistants> assistants, ShiftEnum shiftType, LocalDate date, String region,
             ArrayList<LocalDate> star_end) {
 
         // 刪除休假的人員
@@ -475,18 +459,17 @@ public class ScheduleCalculator {
         if (region.equals("新竹") && !existsByHighWorkload && isRelevantShift) {
 
             Sort sort = Sort.by(Sort.Order.asc("totalHours"));
-
             List<Assistants> crossAssistant = assistantFinder.findByDayAndShift(date, shiftType.getCode(), 36,
                     "%竹%竹%", sort);
 
-            //禮拜一早上沒班，所以午晚也可以支援
+            // 禮拜一早上沒班，所以午晚也可以支援
             if (date.getDayOfWeek() == DayOfWeek.MONDAY && shiftType.equals(ShiftEnum.FULL)) {
                 List<Assistants> pmNightcrossAssistant = assistantFinder.findByDayAndShift(date,
                         ShiftEnum.AFTERNOON_NIGHT.getCode(), 36,
                         "%竹%竹%", sort);
                 crossAssistant.addAll(pmNightcrossAssistant);
             }
-            
+
             // Collections.shuffle(crossAssistant);//隨機
 
             List<Assistants> filteredList = crossAssistant.stream()
@@ -500,12 +483,13 @@ public class ScheduleCalculator {
 
             // 將 filteredList 和 assistants 合併並去重
             Set<Assistants> combinedSet = new LinkedHashSet<>(filteredList);
-            combinedSet.addAll(assistants);
+            combinedSet.addAll(assistants); 
 
             // 清空原始列表，並將去重後的結果加回
             assistants.clear();
             assistants.addAll(combinedSet);
-            assistants.forEach(assistant -> logger.warn("刪除後assistants: {}", assistant.getName()));
+            // assistants.forEach(assistant -> logger.warn("回傳assistants: {}, hours: {}",
+            // assistant.getName(),assistant.getTotalHours()));
         }
     }
 }
