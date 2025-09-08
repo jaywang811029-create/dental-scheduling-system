@@ -158,7 +158,7 @@
       position: relative;
       max-width: 100%;
       overflow-y: auto;
-      height: calc(100vh - 200px);
+      height: calc(110vh - 200px);
     }
 
     #calendar {
@@ -329,6 +329,8 @@
     document.addEventListener("DOMContentLoaded", function () {
       // 初始化 scheduleData
       let scheduleData = [];
+      // 初始化 leaveData
+      let leaveData = [];
 
       // 換算日期
       function formatDate(date) {
@@ -368,11 +370,7 @@
         height: "auto",
         headerToolbar: false,
         dayHeaderFormat: { month: "numeric", day: "2-digit", weekday: "short" },
-        events: [
-          { title: "XXX請假", date: "2025-08-06" },
-          { title: "OOO請假", date: "2025-08-07" },
-          { title: "YYY請假", date: "2025-08-08" }
-        ],
+        events: [],
         dayCellContent: function (arg) {
           const currentDate = arg.date.toISOString().split("T")[0];
           //  console.log("✅ 後端回傳的原始資料 (JSON 格式):", JSON.stringify(scheduleData, null, 2));
@@ -420,12 +418,11 @@
             </thead>
             <tbody>
               <tr><th>助理</th><th>醫師</th></tr>
-              <tr><td>櫃台：${data.frontDesk1?.trim() || "　"}${data.frontDesk2 ? "、" + data.frontDesk2 : ""}</td><td></td></tr>
+              <tr><td colspan="2">櫃台：${data.frontDesk1?.trim() || "　"}${data.frontDesk2 ? "、" + data.frontDesk2 : ""}</td></tr>
               <tr><td>跟診：${data.chairsideName1?.trim() || "　"}</td><td>${data.doctorName1?.trim() || "　"}</td></tr>
               <tr><td>跟診：${data.chairsideName2?.trim() || "　"}</td><td>${data.doctorName2?.trim() || "　"}</td></tr>
               <tr><td>跟診：${data.chairsideName3?.trim() || "　"}</td><td>${data.doctorName3?.trim() || "　"}</td></tr>
-              <tr><td>流動：${data.floaterName1?.trim() || "　"}</td><td></td></tr>
-              <tr><td>流動：${data.floaterName2?.trim() || "　"}</td><td></td></tr>
+              <tr><td colspan="2">流動：${[data.floaterName1?.trim(), data.floaterName2?.trim()].filter(Boolean).join("、") || "　"}</td></tr>
             </tbody>
           </table>
         `;
@@ -444,13 +441,14 @@
         `
           };
         }
-      });//schedule.night
+      });
 
       calendar.render();
 
       function loadSchedule(region) {
         let { start, end } = getSixDayRange(currentStartDate);
         let url = `http://localhost:8080/api/schedules?startDate=${formatDate(start)}&endDate=${formatDate(end)}&region=${region}`;
+        let leaveUrl = `http://localhost:8080/leave?startDate=${formatDate(start)}&endDate=${formatDate(end)}&region=${region}`;
         fetch(url)
           .then(res => {
             if (!res.ok) throw new Error(`HTTP 錯誤！狀態碼：${res.status}`);
@@ -458,11 +456,24 @@
           })
           .then(data => {
 
-            console.log("✅ 後端回傳的原始資料:", data);
+            // console.log("✅ 後端回傳的原始資料:", data);
             scheduleData = data;
             calendar.render();
           })
           .catch(err => console.error("載入失敗:", err));
+
+
+        fetch(leaveUrl)
+          .then(response => response.json())
+          .then(data => {
+              console.log("✅ 後端回傳的原始資料 (JSON 格式):", JSON.stringify(data, null, 2));
+            calendar.removeAllEvents();
+            calendar.addEventSource(data);
+            calendar.render();
+          })
+          .catch(error => {
+            console.error("載入事件失敗：", error);
+          });
       }
 
       // Slide navigation
@@ -522,8 +533,6 @@
         loadSchedule(activeBtn.id === "btnHsinchu" ? "新竹" : "竹北");
       }
 
-      // btnHsinchu.addEventListener("click", () => switchEventsFrom("http://localhost:8080/event?region=新竹", btnHsinchu));
-      // btnZhubei.addEventListener("click", () => switchEventsFrom("http://localhost:8080/event?region=竹北", btnZhubei));
       btnHsinchu.addEventListener("click", () => switchEventsFrom(btnHsinchu));
       btnZhubei.addEventListener("click", () => switchEventsFrom(btnZhubei));
 
@@ -532,7 +541,7 @@
         const region = btnHsinchu.classList.contains("active") ? "新竹" : "竹北";
         startSchedulingBtn.disabled = true; // 禁用按鈕，防止重複點擊
         startSchedulingBtn.innerText = "處理中...";
-        fetch(`http://localhost:8080/event?region=${region}`)
+        fetch(`http://localhost:8080/builder`)
           .then(response => {
             if (!response.ok) {
               return response.text().then(text => {

@@ -17,10 +17,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.Enum.Event;
 import com.example.demo.Enum.ShiftEnum;
 import com.example.demo.component.AssistantFinder;
 import com.example.demo.component.ScheduleCalculator;
 import com.example.demo.controller.ScheduleDTO;
+import com.example.demo.dto.ScheduleViewDTO;
+import com.example.demo.dto.ShiftDetail;
 import com.example.demo.jpa.Assistants;
 import com.example.demo.jpa.LeaveSchedule;
 import com.example.demo.jpa.LeaveScheduleKey;
@@ -49,15 +52,81 @@ public class ScheduleServiceImpl implements ScheduleService {
     private static final Logger logger = LoggerFactory.getLogger(ScheduleServiceImpl.class);
 
     @Override
-    public List<ResultSchedule> doQuery(String region) {
+    public List<Event> doQueryLeave(String startDate, String endDate, String region) {
+        LocalDate start = LocalDate.parse(startDate);
+        LocalDate end = LocalDate.parse(endDate);
+        List<LeaveSchedule> leaveAssistans = leaveScheduleRepository.findByAssistanLeaveDate(start, end,
+                region);
+        // 按日期分組並轉換為 DTO
+        Map<LocalDate, List<LeaveSchedule>> groupedByDate = leaveAssistans.stream()
+                .collect(Collectors.groupingBy(leave -> leave.getKey().getDate()));
 
-        if ("竹北".equals(region)) {
-            return resultScheduleRepository.findByRegion(region);
-        } else if ("新竹".equals(region)) {
-            return resultScheduleRepository.findByRegion(region);
+       List<Event> events = groupedByDate.values().stream()
+                .flatMap(leaveList -> leaveList.stream())
+                .map(leave -> new Event("今日"+leave.getShiftType()+"："+leave.getName(), leave.getKey().getDate().toString()))
+                .collect(Collectors.toList());
+
+
+        return events;
+
+    }
+
+    @Override
+    public List<ScheduleViewDTO> doQuerySchedules(String startDate, String endDate, String region) {
+        LocalDate start = LocalDate.parse(startDate);
+        LocalDate end = LocalDate.parse(endDate);
+
+        // 查詢指定日期範圍和地區的排班資料
+        List<ResultSchedule> schedules = resultScheduleRepository.findByKeyDateBetweenAndKeyRegion(
+                start, end, region);
+
+        // 按日期分組並轉換為 DTO
+        Map<LocalDate, List<ResultSchedule>> groupedByDate = schedules.stream()
+                .collect(Collectors.groupingBy(schedule -> schedule.getKey().getDate()));
+
+        List<ScheduleViewDTO> result = new ArrayList<>();
+        for (LocalDate date : groupedByDate.keySet()) {
+            ScheduleViewDTO dto = new ScheduleViewDTO();
+            dto.setDate(date);
+            dto.setRegion(region);
+
+            // 根據 shiftType 分配資料
+            for (ResultSchedule schedule : groupedByDate.get(date)) {
+                ShiftDetail shiftDetail = new ShiftDetail();
+                shiftDetail.setFrontDesk1(schedule.getFrontDesk1());
+                shiftDetail.setChairsideName1(schedule.getChairsideName1());
+                shiftDetail.setDoctorName1(schedule.getDoctorName1());
+                shiftDetail.setChairsideName2(schedule.getChairsideName2());
+                shiftDetail.setDoctorName2(schedule.getDoctorName2());
+                shiftDetail.setChairsideName3(schedule.getChairsideName3());
+                shiftDetail.setDoctorName3(schedule.getDoctorName3());
+                shiftDetail.setFloaterName1(schedule.getFloaterName1());
+                shiftDetail.setFloaterName2(schedule.getFloaterName2());
+
+                switch (schedule.getKey().getShiftType()) {
+                    case "早":
+                        dto.setMorning(shiftDetail);
+                        break;
+                    case "午":
+                        dto.setNoon(shiftDetail);
+                        break;
+                    case "晚":
+                        dto.setNight(shiftDetail);
+                        break;
+                }
+            }
+
+            // 如果某班次無資料，設置預設值
+            if (dto.getMorning() == null)
+                dto.setMorning(new ShiftDetail());
+            if (dto.getNoon() == null)
+                dto.setNoon(new ShiftDetail());
+            if (dto.getNight() == null)
+                dto.setNight(new ShiftDetail());
+
+            result.add(dto);
         }
-        throw new UnsupportedOperationException("Unimplemented method 'doQuery'");
-
+        return result;
     }
 
     @Override
@@ -74,7 +143,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 總而言之全部要公平
 
         if (region.equals("新竹")) {
-            System.out.println("測試=============================================");
             // 清空當月班表
             resultScheduleRepository.deleteAll();
             // 員工時數從新計算
@@ -287,14 +355,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                 nightDayAssisList,
                 nightDTO);
 
-
         /*---------------------------
          | 午晚班排班邏輯 (第二優先)  |
          ----------------------------*/
         // 午晚班員工
         List<Assistants> pmDayAssisList = assistantFinder.findByDayAndShift(
                 currentDate,
-                ShiftEnum.AFTERNOON_NIGHT.getCode(), 170, region+"%");
+                ShiftEnum.AFTERNOON_NIGHT.getCode(), 170, region + "%");
 
         nightWorkArray = handleWorkArray(nightWorkArray);
         // 次先排固定午晚班員工
@@ -338,7 +405,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         if (pmNightArray[0] != 0 || pmNightArray[1] != 0 || pmNightArray[2] != 0) {
             List<LeaveSchedule> leaveNames = leaveScheduleRepository.findByKeyDateAndRegionAndIsLeave(currentDate,
-                   "%"+ region + "%", true);
+                    "%" + region + "%", true);
             List<Assistants> freeAssistants = assistantRepository.findUnscheduledAssistants(currentDate,
                     "%" + region + "%");
             Set<String> names = freeAssistants.stream()
@@ -352,9 +419,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                     })
                     .collect(Collectors.toSet());
             logger.warn("\n{}->{},\n目前空缺=櫃台{},跟診{},流動{},\n可支援人力{},\n目前休假{}\n", region,
-            pmDTO.getDate(),
-            pmNightArray[0], pmNightArray[1], pmNightArray[2], names.toString(),
-            leaveNamesSet.toString());
+                    pmDTO.getDate(),
+                    pmNightArray[0], pmNightArray[1], pmNightArray[2], names.toString(),
+                    leaveNamesSet.toString());
         }
     }
 
@@ -471,19 +538,18 @@ public class ScheduleServiceImpl implements ScheduleService {
      */
     public void findSupporAssistants(List<Assistants> amAssisList, LocalDate currentDate, Integer remaining,
             String region) {
-            
-       
-        
+
         List<Assistants> shuffleAssistanList = new ArrayList<>();
 
         // 早班不夠人群求替補，禮拜六需要找早午
         shuffleAssistanList = assistantFinder.findByDayAndShift(
                 currentDate,
-                currentDate.getDayOfWeek() == DayOfWeek.SATURDAY? ShiftEnum.MORNING_AFTERNOON.getCode(): ShiftEnum.FULL.getCode() ,
-                 170, 
-                 "%" + region + "%");// 試改
-        
-                LocalDate yesterdayDate = currentDate.minusDays(1);
+                currentDate.getDayOfWeek() == DayOfWeek.SATURDAY ? ShiftEnum.MORNING_AFTERNOON.getCode()
+                        : ShiftEnum.FULL.getCode(),
+                170,
+                "%" + region + "%");// 試改
+
+        LocalDate yesterdayDate = currentDate.minusDays(1);
         // 如果昨天有上全的早班就不排
         shuffleAssistanList.removeIf(assistan -> resultScheduleRepository
                 .countByIsAllDay(assistan.getName(), yesterdayDate.toString()) == 3);

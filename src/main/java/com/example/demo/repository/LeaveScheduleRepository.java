@@ -14,32 +14,38 @@ import com.example.demo.jpa.LeaveScheduleKey;
 @Repository
 public interface LeaveScheduleRepository extends JpaRepository<LeaveSchedule, LeaveScheduleKey> {
 
-    @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
-    List<LeaveSchedule> findByLeaveDateBetween(@Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("region") String region);
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
+        List<LeaveSchedule> findByLeaveDateBetween(@Param("startDate") LocalDate startDate,
+                        @Param("endDate") LocalDate endDate,
+                        @Param("region") String region);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM (" +
-            "SELECT " +
-            "SUM(CASE WHEN LEAVE_ID LIKE 'D%' THEN LENGTH(SHIFT_TYPE) ELSE 0 END) + " +
-            "SUM(CASE WHEN LEAVE_ID LIKE 'A%' THEN 1 ELSE 0 END) AS calculate_work_load " +
-            "FROM LEAVE_SCHEDULE " +
-            "WHERE REGION = :region AND DATE = :targetDate " +
-            "GROUP BY DATE " +
-            "HAVING calculate_work_load > :minWorkload) AS subquery", nativeQuery = true)
-    boolean existsByHighWorkloadAndDate(
-            @Param("region") String region,
-            @Param("minWorkload") int minWorkload,
-            @Param("targetDate") LocalDate targetDate);
+        @Query(value = "SELECT COUNT(*) > 0 FROM (" +
+                        "SELECT " +
+                        "SUM(CASE WHEN LEAVE_ID LIKE 'D%' THEN LENGTH(SHIFT_TYPE) ELSE 0 END) + " +
+                        "SUM(CASE WHEN LEAVE_ID LIKE 'A%' THEN 1 ELSE 0 END) AS calculate_work_load " +
+                        "FROM LEAVE_SCHEDULE " +
+                        "WHERE REGION = :region AND DATE = :targetDate " +
+                        "GROUP BY DATE " +
+                        "HAVING calculate_work_load > :minWorkload) AS subquery", nativeQuery = true)
+        boolean existsByHighWorkloadAndDate(
+                        @Param("region") String region,
+                        @Param("minWorkload") int minWorkload,
+                        @Param("targetDate") LocalDate targetDate);
 
-    List<LeaveSchedule> findByKey(LeaveScheduleKey key);
+        List<LeaveSchedule> findByKey(LeaveScheduleKey key);
 
-//     List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(LocalDate date, String region, boolean isLeave);
+        // List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(LocalDate date, String
+        // region, boolean isLeave);
 
-   @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date = :date AND ls.region like :region AND ls.isLeave = :isLeave")
-    List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(
-            @Param("date") LocalDate date,
-            @Param("region") String region,
-            @Param("isLeave") boolean isLeave);
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date = :date AND ls.region like :region AND ls.isLeave = :isLeave")
+        List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(
+                        @Param("date") LocalDate date,
+                        @Param("region") String region,
+                        @Param("isLeave") boolean isLeave);
+
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'A%' ORDER BY  ls.key.date")
+        List<LeaveSchedule> findByAssistanLeaveDate(@Param("startDate") LocalDate startDate,
+                        @Param("endDate") LocalDate endDate,
+                        @Param("region") String region);
 
 }
