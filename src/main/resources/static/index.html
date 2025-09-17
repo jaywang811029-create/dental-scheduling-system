@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>麗緻排班系統 - 後臺管理</title>
+
+  <!-- FullCalendar 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.js"></script>
+
+  <!-- Bootstrap CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Font Awesome for icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+
+  <!-- Hammer.js for swipe gestures -->
+  <script src="https://hammerjs.github.io/dist/hammer.min.js"></script>
+
+  <!-- 換算日期 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "微軟正黑體", Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      background: #f4f6f9;
+      color: #333;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      background-color: #2c3e50;
+      color: white;
+      width: 250px;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      padding-top: 20px;
+      transition: width 0.3s ease;
+    }
+
+    #sidebar.collapsed {
+      width: 60px;
+    }
+
+    #sidebar .nav-link {
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      align-items: center;
+      transition: background-color 0.3s ease;
+    }
+
+    #sidebar .nav-link:hover {
+      background-color: #34495e;
+    }
+
+    #sidebar .nav-link i {
+      margin-right: 15px;
+      font-size: 1.2rem;
+      width: 20px;
+      text-align: center;
+    }
+
+    #sidebar .sidebar-brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      padding: 15px 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #sidebar .sidebar-brand i {
+      margin-right: 10px;
+      color: #e67e22;
+      /* 牙科主題顏色 */
+    }
+
+    #sidebar .toggle-btn {
+      position: absolute;
+      top: 15px;
+      right: -15px;
+      background-color: #2c3e50;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+
+    #main-content {
+      margin-left: 250px;
+      padding: 20px;
+      height: 100vh;
+      overflow-y: auto;
+      transition: margin-left 0.3s ease;
+    }
+
+    #main-content.collapsed {
+      margin-left: 60px;
+    }
+
+    h1 {
+      font-weight: 700;
+      font-size: 2.2rem;
+      margin-bottom: 20px;
+      color: #206a5d;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+    }
+
+    h1 i {
+      margin-right: 10px;
+      color: #e67e22;
+      /* 牙科主題顏色 */
+    }
+
+    #btnGroup {
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    #btnGroup button {
+      background-color: #3b8d99;
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      font-size: 1rem;
+    }
+
+    #btnGroup button:hover,
+    #btnGroup button:focus {
+      background-color: #2a6f7c;
+      outline: none;
+      box-shadow: 0 0 8px #2a6f7c;
+    }
+
+    #btnGroup button.active {
+      background-color: #1e4f54;
+      box-shadow: 0 0 12px #1e4f54;
+    }
+
+    #calendar-container {
+      position: relative;
+      max-width: 100%;
+      overflow-y: auto;
+      height: calc(110vh - 200px);
+    }
+
+    #calendar {
+      max-width: 100%;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .slide-left {
+      animation: slideLeft 0.3s ease forwards;
+    }
+
+    .slide-right {
+      animation: slideRight 0.3s ease forwards;
+    }
+
+    @keyframes slideLeft {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-100%);
+      }
+    }
+
+    @keyframes slideRight {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(100%);
+      }
+    }
+
+    .fc-daygrid-day-bg {
+      padding: 4px;
+    }
+
+    .shift-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.65rem;
+      margin-bottom: 8px;
+    }
+
+    .shift-table th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      color: #206a5d;
+      text-align: center;
+      border: 1px solid #dee2e6;
+      padding: 2px;
+    }
+
+    .shift-table td {
+      border: 1px solid #dee2e6;
+      padding: 2px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    .nav-weeks-left,
+    .nav-weeks-right {
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-weeks-left button,
+    .nav-weeks-right button {
+      background-color: #3b8d99;
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 8px 15px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .nav-weeks-left button:hover,
+    .nav-weeks-right button:hover {
+      background-color: #2a6f7c;
+    }
+
+    #infoBtnGroup {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #infoBtnGroup button {
+      background-color: #6c757d;
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      font-size: 0.9rem;
+    }
+
+    #infoBtnGroup button:hover {
+      background-color: #5a6268;
+    }
+
+    .fc-daygrid-day-frame {
+      min-height: 150px;
+    }
+
+    .fc-day-sun {
+      display: none;
+    }
+
+    #startScheduling {
+      background-color: #e67e22;
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 10px 20px;
+      margin-top: 15px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #startScheduling:hover {
+      background-color: #d35400;
+    }
+
+    .modal-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .modal-table th,
+    .modal-table td {
+      border: 1px solid #dee2e6;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .modal-table th {
+      background-color: #f8f9fa;
+      color: #206a5d;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-brand"><i class="fas fa-tooth"></i> 麗緻後臺</div>
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a class="nav-link active" href="#"><i class="fas fa-calendar-alt"></i> 排班系統</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#"><i class="fas fa-user-friends"></i> 助理管理</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#"><i class="fas fa-user-md"></i> 醫師管理</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#"><i class="fas fa-plane-departure"></i> 休假管理</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#"><i class="fas fa-cog"></i> 設定</a>
+      </li>
+    </ul>
+    <button class="toggle-btn" id="sidebarToggle"><i class="fas fa-chevron-left"></i></button>
+  </nav>
+
+  <!-- Main Content -->
+  <div id="main-content">
+    <div class="container-fluid">
+      <h1><i class="fas fa-tooth"></i> 麗緻排班系統</h1>
+
+      <div id="btnGroup">
+        <button id="btnZhubei" class="btn">竹北班表</button>
+        <button id="btnHsinchu" class="btn active">新竹班表</button>
+      </div>
+
+      <div class="nav-buttons">
+        <div class="nav-weeks-left">
+          <button id="prevWeeks"><i class="fas fa-chevron-left"></i> 前一周</button>
+        </div>
+        <div id="infoBtnGroup">
+          <button type="button" data-bs-toggle="modal" data-bs-target="#doctorModal">醫師名單</button>
+          <button type="button" data-bs-toggle="modal" data-bs-target="#assistantModal">助理名單</button>
+          <button type="button" data-bs-toggle="modal" data-bs-target="#leaveModal">休假資訊</button>
+          <button type="button" data-bs-toggle="modal" data-bs-target="#shiftModal">班別資訊</button>
+        </div>
+        <div class="nav-weeks-right">
+          <button id="nextWeeks"><i class="fas fa-chevron-right"></i> 後一周</button>
+        </div>
+      </div>
+
+      <div id="calendar-container">
+        <div id="calendar"></div>
+        <button id="startScheduling">開始排班</button>
+      </div>
+
+      <!-- Doctor Modal -->
+      <div class="modal fade" id="doctorModal" tabindex="-1" aria-labelledby="doctorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="doctorModalLabel">崗位次數統計</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>姓名</th>
+                    <th>櫃台次數</th>
+                    <th>跟診次數</th>
+                    <th>流動次數</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>張醫師</td>
+                    <td>牙周病</td>
+                    <td>竹北</td>
+                    <td>竹北</td>
+                  </tr>
+                  <tr>
+                    <td>李醫師</td>
+                    <td>植牙</td>
+                    <td>新竹</td>
+                    <td>竹北</td>
+                  </tr>
+                  <tr>
+                    <td>王醫師</td>
+                    <td>矯正</td>
+                    <td>竹北</td>
+                    <td>竹北</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assistant Modal -->
+      <div class="modal fade" id="assistantModal" tabindex="-1" aria-labelledby="assistantModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="assistantModalLabel">助理名單</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>姓名</th>
+                    <th>職務</th>
+                    <th>地區</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>陳助理</td>
+                    <td>櫃台</td>
+                    <td>竹北</td>
+                  </tr>
+                  <tr>
+                    <td>林助理</td>
+                    <td>跟診</td>
+                    <td>新竹</td>
+                  </tr>
+                  <tr>
+                    <td>黃助理</td>
+                    <td>流動</td>
+                    <td>竹北</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leave Modal -->
+      <div class="modal fade" id="leaveModal" tabindex="-1" aria-labelledby="leaveModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="leaveModalLabel">休假資訊</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>姓名</th>
+                    <th>休假日期</th>
+                    <th>地區</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>張醫師</td>
+                    <td>2025-08-02</td>
+                    <td>竹北</td>
+                  </tr>
+                  <tr>
+                    <td>林助理</td>
+                    <td>2025-08-03</td>
+                    <td>新竹</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shift Modal -->
+      <div class="modal fade" id="shiftModal" tabindex="-1" aria-labelledby="shiftModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="shiftModalLabel">班別資訊</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>班別</th>
+                    <th>時間</th>
+                    <th>說明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>早班</td>
+                    <td>08:00-12:00</td>
+                    <td>上午門診</td>
+                  </tr>
+                  <tr>
+                    <td>午班</td>
+                    <td>13:00-17:00</td>
+                    <td>下午門診</td>
+                  </tr>
+                  <tr>
+                    <td>晚班</td>
+                    <td>18:00-22:00</td>
+                    <td>夜間門診</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      let scheduleData = [];
+      let leaveData = [];
+
+      function formatDate(date) {
+        return moment.tz(date, "Asia/Taipei").format("YYYY-MM-DD");
+      }
+
+      const sidebar = document.getElementById("sidebar");
+      const mainContent = document.getElementById("main-content");
+      const sidebarToggle = document.getElementById("sidebarToggle");
+
+      sidebarToggle.addEventListener("click", function () {
+        sidebar.classList.toggle("collapsed");
+        mainContent.classList.toggle("collapsed");
+        const icon = sidebarToggle.querySelector("i");
+        icon.classList.toggle("fa-chevron-left");
+        icon.classList.toggle("fa-chevron-right");
+      });
+
+      const calendarEl = document.getElementById("calendar");
+      let currentStartDate = new Date("2025-09-01");
+
+      function getSixDayRange(date) {
+        const start = new Date(date);
+        start.setDate(start.getDate() - start.getDay() + 1);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 5);
+        return { start, end };
+      }
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: "dayGridWeek",
+        initialDate: currentStartDate,
+        validRange: getSixDayRange(currentStartDate),
+        locale: "zh-tw",
+        height: "auto",
+        headerToolbar: false,
+        dayHeaderFormat: { month: "numeric", day: "2-digit", weekday: "short" },
+        events: [],
+        dayCellContent: function (arg) {
+          const currentDate = arg.date.toISOString().split("T")[0];
+          const schedule = scheduleData.find(s => s.date === formatDate(arg.date)) || {
+            morning: {
+              frontDesk1: "　",
+              chairsideName1: "　",
+              doctorName1: "　",
+              chairsideName2: "　",
+              doctorName2: "　",
+              chairsideName3: "　",
+              doctorName3: "　",
+              floaterName1: "　",
+              floaterName2: "　"
+            },
+            noon: {
+              frontDesk1: "　",
+              chairsideName1: "　",
+              doctorName1: "　",
+              chairsideName2: "　",
+              doctorName2: "　",
+              chairsideName3: "　",
+              doctorName3: "　",
+              floaterName1: "　",
+              floaterName2: "　"
+            },
+            night: {
+              frontDesk1: "　",
+              chairsideName1: "　",
+              doctorName1: "　",
+              chairsideName2: "　",
+              doctorName2: "　",
+              chairsideName3: "　",
+              doctorName3: "　",
+              floaterName1: "　",
+              floaterName2: "　"
+            }
+          };
+
+          function renderShiftTable(shift, data) {
+            return `
+          <table class="shift-table table table-sm table-bordered">
+            <thead>
+              <tr><th colspan="2">${shift}班</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>助理</th><th>醫師</th></tr>
+              <tr><td colspan="2">櫃台：${data.frontDesk1?.trim() || "　"}${data.frontDesk2 ? "、" + data.frontDesk2 : ""}</td></tr>
+              <tr><td>跟診：${data.chairsideName1?.trim() || "　"}</td><td>${data.doctorName1?.trim() || "　"}</td></tr>
+              <tr><td>跟診：${data.chairsideName2?.trim() || "　"}</td><td>${data.doctorName2?.trim() || "　"}</td></tr>
+              <tr><td>跟診：${data.chairsideName3?.trim() || "　"}</td><td>${data.doctorName3?.trim() || "　"}</td></tr>
+              <tr><td colspan="2">流動：${[data.floaterName1?.trim(), data.floaterName2?.trim()].filter(Boolean).join("、") || "　"}</td></tr>
+              <tr></tr>
+            </tbody>
+          </table>
+        `;
+          }
+
+          return {
+            html: `
+          <div class="fc-daygrid-day-frame">
+            <div class="fc-daygrid-day-top">${arg.dayNumberText}</div>
+            <div class="fc-daygrid-day-bg">
+              ${renderShiftTable("早", schedule.morning)}
+              ${renderShiftTable("午", schedule.noon)}
+              ${renderShiftTable("晚", schedule.night)}
+            </div>
+          </div>
+        `
+          };
+        }
+      });
+
+      calendar.render();
+
+      function loadSchedule(region) {
+        let { start, end } = getSixDayRange(currentStartDate);
+        let url = `http://localhost:8080/api/schedules?startDate=${formatDate(start)}&endDate=${formatDate(end)}&region=${region}`;
+        let leaveUrl = `http://localhost:8080/leave?startDate=${formatDate(start)}&endDate=${formatDate(end)}&region=${region}`;
+        fetch(url)
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP 錯誤！狀態碼：${res.status}`);
+            return res.json();
+          })
+          .then(data => {
+            scheduleData = data;
+            calendar.render();
+          })
+          .catch(err => console.error("載入失敗:", err));
+
+        fetch(leaveUrl)
+          .then(response => response.json())
+          .then(data => {
+            console.log("✅ 後端回傳的原始資料 (JSON 格式):", JSON.stringify(data, null, 2));
+            calendar.removeAllEvents();
+            calendar.addEventSource(data);
+            calendar.render();
+          })
+          .catch(error => {
+            console.error("載入事件失敗：", error);
+          });
+      }
+
+      const prevWeeksBtn = document.getElementById("prevWeeks");
+      const nextWeeksBtn = document.getElementById("nextWeeks");
+      const calendarContainer = document.getElementById("calendar");
+
+      function slideCalendar(direction) {
+        calendarContainer.classList.add(direction === "prev" ? "slide-left" : "slide-right");
+        setTimeout(() => {
+          calendarContainer.classList.remove("slide-left", "slide-right");
+          const newDate = new Date(currentStartDate);
+          newDate.setDate(newDate.getDate() + (direction === "prev" ? -6 : 6));
+          currentStartDate = newDate;
+          calendar.setOption("validRange", getSixDayRange(currentStartDate));
+          calendar.gotoDate(currentStartDate);
+          loadSchedule(document.getElementById("btnHsinchu").classList.contains("active") ? "新竹" : "竹北");
+        }, 300);
+      }
+
+      prevWeeksBtn.addEventListener("click", () => slideCalendar("prev"));
+      nextWeeksBtn.addEventListener("click", () => slideCalendar("next"));
+
+      const calendarContainerEl = document.getElementById("calendar-container");
+      const hammer = new Hammer(calendarContainerEl);
+      hammer.on("swipeleft", () => slideCalendar("next"));
+      hammer.on("swiperight", () => slideCalendar("prev"));
+
+      function loadEventsFromBackend(url) {
+        fetch(url)
+          .then(response => {
+            if (!response.ok) throw new Error("Network response was not ok");
+            return response.json();
+          })
+          .then(data => {
+            calendar.removeAllEvents();
+            calendar.addEventSource(data);
+            calendar.render();
+          })
+          .catch(error => {
+            console.error("載入事件失敗：", error);
+            alert("無法載入事件，請檢查後端服務"+error);
+          });
+      }
+
+      const btnZhubei = document.getElementById("btnZhubei");
+      const btnHsinchu = document.getElementById("btnHsinchu");
+
+      function switchEventsFrom(activeBtn) {
+        btnZhubei.classList.remove("active");
+        btnHsinchu.classList.remove("active");
+        activeBtn.classList.add("active");
+        loadSchedule(activeBtn.id === "btnHsinchu" ? "新竹" : "竹北");
+      }
+
+      btnHsinchu.addEventListener("click", () => switchEventsFrom(btnHsinchu));
+      btnZhubei.addEventListener("click", () => switchEventsFrom(btnZhubei));
+
+      const startSchedulingBtn = document.getElementById("startScheduling");
+      startSchedulingBtn.addEventListener("click", () => {
+        const region = btnHsinchu.classList.contains("active") ? "新竹" : "竹北";
+        startSchedulingBtn.disabled = true;
+        startSchedulingBtn.innerText = "處理中...";
+        fetch(`http://localhost:8080/builder`)
+          .then(response => {
+            if (!response.ok) {
+              return response.text().then(text => {
+                throw new Error(`HTTP 錯誤！狀態碼：${response.status}, 訊息：${text}`);
+              });
+            }
+            return response;
+          })
+          .then(() => {
+            alert("排班成功！");
+            loadSchedule(region);
+            calendar.render();
+          })
+          .catch(error => {
+            console.error("排班失敗:", error);
+            alert(`排班失敗：${error.message}，請檢查後端服務`);
+          })
+          .finally(() => {
+            startSchedulingBtn.disabled = false;
+            startSchedulingBtn.innerText = "開始排班";
+          });
+      });
+    });
+  </script>
+</body>
+
+</html>
