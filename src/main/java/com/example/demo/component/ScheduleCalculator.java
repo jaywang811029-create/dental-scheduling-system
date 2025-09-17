@@ -3,6 +3,8 @@ package com.example.demo.component;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -37,8 +39,15 @@ public class ScheduleCalculator {
 
     private static final Logger logger = LoggerFactory.getLogger(ScheduleCalculator.class);
 
-    /*
+    /**
      * 早午排班邏輯
+     * 
+     * @param ampmWorkArray 早午班需要人數
+     * @param amWorkArray 早班需要人數
+     * @param assistants 可上班助理人員
+     * @param amDTO 早班DTO
+     * @param pmDTO 午班DTO
+     * @param nightDTO 晚班DTO
      */
     public void evenSchedulingLogic(int[] ampmWorkArray, int[] amWorkArray,
             List<Assistants> assistants, ScheduleDTO amDTO,
@@ -58,6 +67,17 @@ public class ScheduleCalculator {
                 ampmWorkArray[0] = ampmWorkArray[0] - 2;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING_AFTERNOON.getHours());// 加總時數
+                assistant.setFrontDeskCount(assistant.getFrontDeskCount()+2);
+                assistantRepository.save(assistant);
+                continue;
+            }  else if (assistant.isFloater() && ampmWorkArray[2] >= 2 && isInAmWorking && isInPmWorking) {
+                // 如果櫃台、跟診都不會就去流動
+                amDTO.getFloaters().add(assistant.getName());
+                pmDTO.getFloaters().add(assistant.getName());
+                ampmWorkArray[2] = ampmWorkArray[2] - 2;
+
+                assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING_AFTERNOON.getHours());
+                assistant.setFloaterCount(assistant.getFloaterCount()+2);
                 assistantRepository.save(assistant);
                 continue;
             } else if (assistant.isChairside() && ampmWorkArray[1] >= 2
@@ -68,15 +88,7 @@ public class ScheduleCalculator {
                 ampmWorkArray[1] = ampmWorkArray[1] - 2;
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING_AFTERNOON.getHours());
-                assistantRepository.save(assistant);
-                continue;
-            } else if (assistant.isFloater() && ampmWorkArray[2] >= 2 && isInAmWorking && isInPmWorking) {
-                // 如果櫃台、跟診都不會就去流動
-                amDTO.getFloaters().add(assistant.getName());
-                pmDTO.getFloaters().add(assistant.getName());
-                ampmWorkArray[2] = ampmWorkArray[2] - 2;
-
-                assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING_AFTERNOON.getHours());
+                assistant.setChairsideCount(assistant.getChairsideCount()+2);
                 assistantRepository.save(assistant);
                 continue;
             }
@@ -85,33 +97,42 @@ public class ScheduleCalculator {
             boolean isEnoughCH = amDTO.getChairsides().size() < amWorkArray[1];
             boolean isEnoughFL = amDTO.getFloaters().size() < amWorkArray[2];
 
-            if (assistant.isFrontDesk() && isEnoughFD&& isInAmWorking) {
-                amDTO.getFrontDesks().add(assistant.getName() + "!!");// 早班
+            if (assistant.isFrontDesk() && isEnoughFD && isInAmWorking) {
+                amDTO.getFrontDesks().add(assistant.getName() + "(單)");// 早班
                 ampmWorkArray[0] = ampmWorkArray[0] - 1;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
+                assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                 assistantRepository.save(assistant);
                 continue;
-            } else if (assistant.isChairside() && isEnoughCH&& isInAmWorking) {
-                amDTO.getChairsides().add(assistant.getName() + "!!");// 早班
-                ampmWorkArray[1] = ampmWorkArray[1] - 1;// 扣除崗位
-
-                assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
-                assistantRepository.save(assistant);
-                continue;
-            } else if (assistant.isFloater() && isEnoughFL&& isInAmWorking) {
-                amDTO.getFloaters().add(assistant.getName() + "!!");// 早班
+            }  else if (assistant.isFloater() && isEnoughFL && isInAmWorking) {
+                amDTO.getFloaters().add(assistant.getName() + "(單)");// 早班
                 ampmWorkArray[2] = ampmWorkArray[2] - 1;// 扣除崗位
 
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
+                assistant.setFloaterCount(assistant.getFloaterCount()+1);
                 assistantRepository.save(assistant);
+            } else if (assistant.isChairside() && isEnoughCH && isInAmWorking) {
+                amDTO.getChairsides().add(assistant.getName() + "(單)");// 早班
+                ampmWorkArray[1] = ampmWorkArray[1] - 1;// 扣除崗位
+
+                assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.MORNING.getHours());// 加總時數
+                assistant.setChairsideCount(assistant.getChairsideCount()+1);
+                assistantRepository.save(assistant);
+                continue;
             }
         }
 
     }
 
-    /*
+    /**
      * 單診排班邏輯，目前單診只有晚班，暫定先排晚班邏輯
+     * 
+     * @param ampmArray 早午班需要人數
+     * @param pmNightArray 午班需要人數
+     * @param nightWorkArray 晚班需要人數
+     * @param assistants 可上班助理人員
+     * @param nightDTO 晚班DTO
      */
     public void singleSchedulingLogic(
             int[] ampmArray,
@@ -131,23 +152,35 @@ public class ScheduleCalculator {
                 nightDTO.getFrontDesks().add(assistant.getName());// 晚班
                 pmNightArray[0] = pmNightArray[0] - 1;
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                 assistantRepository.save(assistant);
             } else if (assistant.isChairside() && nightWorkArray[1] > 0) {
                 nightDTO.getChairsides().add(assistant.getName());// 晚班
                 pmNightArray[1] = pmNightArray[1] - 1;
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                assistant.setChairsideCount(assistant.getChairsideCount()+1);
                 assistantRepository.save(assistant);
             } else if (assistant.isFloater() && nightWorkArray[2] > 0) {
                 nightDTO.getFloaters().add(assistant.getName());// 晚班
                 pmNightArray[2] = pmNightArray[2] - 1;
                 assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                assistant.setFloaterCount(assistant.getFloaterCount()+1);
                 assistantRepository.save(assistant);
             }
         }
     }
 
-    /*
+    /**
      * 午晚班排班邏輯
+     * 
+     * @param pmNightArray 午晚班需要人數
+     * @param ampmArray 早午班需要人數
+     * @param nightWorkArray 晚班需要人數
+     * @param pmWorkArray 午班需要人數
+     * @param assistants 可上班助理人
+     * @param amDTO 早班DTO
+     * @param pmDTO 午班DTO
+     * @param nightDTO 晚班DTO
      */
     public int[] nightSchedulingLogic(
             int[] pmNightArray,
@@ -175,20 +208,7 @@ public class ScheduleCalculator {
                     pmNightArray[0] = pmNightArray[0] - 2;
                     // 新增總時數
                     assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON_NIGHT.getHours());
-                    assistantRepository.save(assistant);
-                    continue;
-                }
-            } else if (assistant.isChairside() && pmNightArray[1] >= 2
-                    && pmDTO.getChairsides().size() < pmWorkArray[1]
-                    && nightDTO.getChairsides().size() < nightWorkArray[1]) {
-                // 若不會櫃台會跟診就去跟診
-                if (isInNightWorking
-                        && isInPmWorking) {
-                    pmDTO.getChairsides().add(assistant.getName());
-                    nightDTO.getChairsides().add(assistant.getName());
-                    pmNightArray[1] = pmNightArray[1] - 2;
-                    // 新增總時數
-                    assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON_NIGHT.getHours());
+                    assistant.setFrontDeskCount(assistant.getFrontDeskCount()+2);
                     assistantRepository.save(assistant);
                     continue;
                 }
@@ -197,30 +217,35 @@ public class ScheduleCalculator {
                 if (isInNightWorking
                         && isInPmWorking
                         && pmDTO.getFloaters().size() < nightWorkArray[2]) // ex: [1,3,3]、晚[1,1,1]
-                // 流動被固定晚吃掉一個剩兩個中午，需比對晚上位置有沒有人
-                {
-
-                    // if (assistant.getName().contains("昌閔")
-                    // && (pmDTO.getDoctors().size() >= 2 || nightDTO.getDoctors().size() >= 2)) {
-                    // pmDTO.getSuppors().put(2, assistant.getName());//
-                    // nightDTO.getSuppors().put(2, assistant.getName());//
-                    // // 新增總時數
-                    // assistant.setTotalHours(assistant.getTotalHours() +
-                    // ShiftEnum.AFTERNOON_NIGHT.getHours());
-                    // assistantRepository.save(assistant);
-                    // continue;
-                    // }
-
-                    pmDTO.getFloaters().add(assistant.getName());//
+                        // 流動被固定晚吃掉一個剩兩個中午，需比對晚上位置有沒有人
+                        {
+                            
+                            pmDTO.getFloaters().add(assistant.getName());//
                     nightDTO.getFloaters().add(assistant.getName());//
                     pmNightArray[2] = pmNightArray[2] - 2;
                     // 新增總時數
                     assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON_NIGHT.getHours());
+                    assistant.setFloaterCount(assistant.getFloaterCount()+2);
                     assistantRepository.save(assistant);
                     continue;
                 }
 
-            }
+            }else if (assistant.isChairside() && pmNightArray[1] >= 2
+            && pmDTO.getChairsides().size() < pmWorkArray[1]
+            && nightDTO.getChairsides().size() < nightWorkArray[1]) {
+                // 若不會櫃台會跟診就去跟診
+                if (isInNightWorking
+                && isInPmWorking) {
+                    pmDTO.getChairsides().add(assistant.getName());
+                    nightDTO.getChairsides().add(assistant.getName());
+                    pmNightArray[1] = pmNightArray[1] - 2;
+                    // 新增總時數
+                    assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON_NIGHT.getHours());
+                    assistant.setChairsideCount(assistant.getChairsideCount()+2);
+                    assistantRepository.save(assistant);
+                    continue;
+                }
+            } 
 
             // 承接不同崗位邏輯
             if (assistant.isFrontDesk() && pmNightArray[0] > 0) {
@@ -231,67 +256,119 @@ public class ScheduleCalculator {
 
                     // 新增總時數
                     assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON.getHours());
+                    assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                     assistantRepository.save(assistant);
-
+                    
                     // IF 晚班沒班 && 晚上櫃台也缺人
                 } else if (isInNightWorking && nightWorkArray[0] > 0) {
-
+                    
                     // 單純午晚班(ex:亦佳優先)
                     if (isInPmWorking && isInAmWorking) {
-
+                        
                         if (assistant.getName().contains("奕佳")) {// 暫時邏輯
                             pmDTO.getSuppors().put(1, assistant.getName());//
                             nightDTO.getSuppors().put(1, assistant.getName());//
-
+                            
                             // 新增總時數
                             assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON_NIGHT.getHours());
                             assistantRepository.save(assistant);
                             continue;
-
+                            
                         }
-                        // else {
-                        // nightDTO.getFrontDesks().add(assistant.getName()+"-");// 晚班櫃台
-                        // pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
-
-                        // // 新增總時數
-                        // assistant.setTotalHours(assistant.getTotalHours() +
-                        // ShiftEnum.NIGHT.getHours());
-                        // assistantRepository.save(assistant);
-                        // continue;
-                        // }
                     }
-
+                    
                     // 如果早上沒班，中午有班，晚上沒班，處理午班不同崗位的人
                     if (checkDuplicate(assistant.getName(), pmDTO) && isInAmWorking) {
                         nightDTO.getFrontDesks().add(assistant.getName());// 晚班櫃台
                         pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
-
+                        
                         // 新增總時數
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                         assistantRepository.save(assistant);
-
+                        
                         continue;
                     }
 
                     // 如果早班有班，中午也有班，直接來上allDay
                     if (checkDuplicate(assistant.getName(), amDTO)
-                            && checkDuplicate(assistant.getName(), pmDTO)) {
-                        nightDTO.getFrontDesks().add(assistant.getName() + "*");// 晚班櫃台
+                    && checkDuplicate(assistant.getName(), pmDTO)) {
+                        nightDTO.getFrontDesks().add(assistant.getName() + "(全)");// 晚班櫃台
                         pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
-
+                        
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                         assistantRepository.save(assistant);
                         continue;
                         // 萬不得已就上單診
-                    } else {
-                        nightDTO.getFrontDesks().add(assistant.getName() + "!");// 晚班櫃台
+                    } else if(isInAmWorking){
+                        nightDTO.getFrontDesks().add(assistant.getName() + "(單)");// 晚班櫃台
                         pmNightArray[0] = pmNightArray[0] - 1;// 扣除崗位
 
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFrontDeskCount(assistant.getFrontDeskCount()+1);
                         assistantRepository.save(assistant);
                         continue;
                     }
                 }
+            }
+
+            // 會流動，崗位缺也有，晚上也沒班
+            if (assistant.isFloater() && pmNightArray[2] > 0) {
+
+
+                // 中午沒班，早午扣完還有剩中班缺，中午班要先處理
+                if (isInPmWorking
+                        && ampmArray[2] > 0
+                        && pmWorkArray[2] > pmDTO.getFloaters().size()) {// 若中午有，晚上沒
+                    pmDTO.getFloaters().add(assistant.getName());//
+                    pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
+
+                    // 新增總時數
+                    assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON.getHours());
+                    assistant.setFloaterCount(assistant.getFloaterCount()+1);
+                    assistantRepository.save(assistant);
+
+                    // 晚上沒班，崗位缺也有
+                } else if (isInNightWorking
+                        && pmNightArray[2] > 0
+                        && nightWorkArray[2] > nightDTO.getFloaters().size()) // 防止晚上已滿剩中午又進來
+                {
+
+                    // 中午有班，早上沒班，晚上沒班(主要給午班不同崗位)
+                    if (checkDuplicate(assistant.getName(), pmDTO) && isInAmWorking) {
+                        nightDTO.getFloaters().add(assistant.getName());//
+                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
+
+                        // 新增總時數
+                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFloaterCount(assistant.getFloaterCount()+1);
+                        assistantRepository.save(assistant);
+                        continue;
+                    }
+
+                    // 早上有班，中午有班，直接來上全
+                    if (checkDuplicate(assistant.getName(), amDTO) && checkDuplicate(assistant.getName(), pmDTO)) {
+                        nightDTO.getFloaters().add(assistant.getName() + "(全)");//
+                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
+
+                        // 新增總時數
+                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFloaterCount(assistant.getFloaterCount()+1);
+                        assistantRepository.save(assistant);
+                        continue;
+                    } else if(isInAmWorking){
+                        // 可以排除單診抓以上班的人上全
+
+                        nightDTO.getFloaters().add(assistant.getName() + "(單)");//
+                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
+                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setFloaterCount(assistant.getFloaterCount()+1);
+                        assistantRepository.save(assistant);
+                        continue;
+                    }
+                }
+
             }
 
             // 會跟診技能，目前跟診也有缺人
@@ -319,6 +396,7 @@ public class ScheduleCalculator {
 
                         // 新增總時數
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setChairsideCount(assistant.getChairsideCount()+1);
                         assistantRepository.save(assistant);
                         continue;
                     }
@@ -326,112 +404,47 @@ public class ScheduleCalculator {
                     // 早上有班、中午也有班，直接上全
                     if (checkDuplicate(assistant.getName(), amDTO)
                             && checkDuplicate(assistant.getName(), pmDTO)) {
-                        nightDTO.getChairsides().add(assistant.getName() + "*");//
+                        nightDTO.getChairsides().add(assistant.getName() + "(全)");//
                         pmNightArray[1] = pmNightArray[1] - 1;// 扣除崗位
 
                         // 新增總時數
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setChairsideCount(assistant.getChairsideCount()+1);
                         assistantRepository.save(assistant);
                         continue;
-                    } else {
-                        nightDTO.getChairsides().add(assistant.getName() + "!");//
+                    } else if(isInAmWorking){
+                        nightDTO.getChairsides().add(assistant.getName() + "(單)");//
                         pmNightArray[1] = pmNightArray[1] - 1;// 扣除崗位
 
                         assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
+                        assistant.setChairsideCount(assistant.getChairsideCount()+1);
                         assistantRepository.save(assistant);
                         continue;
                     }
                 }
             }
 
-            // 會流動，崗位缺也有，晚上也沒班
-            if (assistant.isFloater() && pmNightArray[2] > 0) {
-
-                // if (assistant.getName().equals("昌閔")) {
-                // if (pmDTO.getDoctors().size() > 2) {
-                // pmDTO.getSuppors().put(2, assistant.getName());//
-
-                // assistant.setTotalHours(assistant.getTotalHours() +
-                // ShiftEnum.AFTERNOON.getHours());
-                // assistantRepository.save(assistant);
-                // continue;
-                // } else if (nightDTO.getDoctors().size() >2) {
-                // nightDTO.getSuppors().put(2, assistant.getName());//
-
-                // assistant.setTotalHours(assistant.getTotalHours() +
-                // ShiftEnum.AFTERNOON.getHours());
-                // assistantRepository.save(assistant);
-                // continue;
-                // }
-
-                // }
-
-                // 中午沒班，早午扣完還有剩中班缺，中午班要先處理
-                if (isInPmWorking
-                        && ampmArray[2] > 0
-                        && pmWorkArray[2] > pmDTO.getFloaters().size()) {// 若中午有，晚上沒
-                    pmDTO.getFloaters().add(assistant.getName());//
-                    pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
-
-                    // 新增總時數
-                    assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.AFTERNOON.getHours());
-                    assistantRepository.save(assistant);
-
-                    // 晚上沒班，崗位缺也有
-                } else if (isInNightWorking
-                        && pmNightArray[2] > 0
-                        && nightWorkArray[2] > nightDTO.getFloaters().size()) // 防止晚上已滿剩中午又進來
-                {
-
-                    // 中午有班，早上沒班，晚上沒班(主要給午班不同崗位)
-                    if (checkDuplicate(assistant.getName(), pmDTO) && isInAmWorking) {
-                        nightDTO.getFloaters().add(assistant.getName());//
-                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
-
-                        // 新增總時數
-                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
-                        assistantRepository.save(assistant);
-                        continue;
-                    }
-
-                    // 早上有班，中午有班，直接來上全
-                    if (checkDuplicate(assistant.getName(), amDTO) && checkDuplicate(assistant.getName(), pmDTO)) {
-                        nightDTO.getFloaters().add(assistant.getName() + "*");//
-                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
-
-                        // 新增總時數
-                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
-                        assistantRepository.save(assistant);
-                        continue;
-                    } else {
-                        // 可以排除單診抓以上班的人上全
-
-                        nightDTO.getFloaters().add(assistant.getName() + "!");//
-                        pmNightArray[2] = pmNightArray[2] - 1;// 扣除崗位
-                        assistant.setTotalHours(assistant.getTotalHours() + ShiftEnum.NIGHT.getHours());
-                        assistantRepository.save(assistant);
-                        continue;
-                    }
-                }
-
-            }
+            
         }
 
         return pmNightArray;
     }
 
-    /*
+    /**
      * 查看該時段是否有上班
-     * checkDuplicate = true (該時段有診) 有上班
-     * checkDuplicate = false (該時段沒診) 沒上班
+     * @param name 姓名
+     * @param dto 班表DTO
+     * @apiNote checkDuplicate = true (該時段有診) 有上班
+     * @apiNote checkDuplicate = false (該時段沒診) 沒上班
      */
     public boolean checkDuplicate(String name, ScheduleDTO dto) {
-        boolean isPass = dto.getFrontDesks().contains(name) || //
-                dto.getChairsides().contains(name) || //
-                dto.getFloaters().contains(name);
+boolean isPass = dto.getFrontDesks().stream().anyMatch(s -> s.contains(name)) || //
+                dto.getChairsides().stream().anyMatch(s -> s.contains(name)) || //
+                dto.getFloaters().stream().anyMatch(s -> s.contains(name));
 
         return isPass;
     }
+
 
     /*
      * 將助理總時數歸零
@@ -441,20 +454,27 @@ public class ScheduleCalculator {
 
         for (Assistants assistant : assistants) {
             assistant.setTotalHours(0);
+            assistant.setFrontDeskCount(0);
+            assistant.setChairsideCount(0);
+            assistant.setFloaterCount(0);
             assistantRepository.save(assistant);
         }
     }
 
-    /*
+    /**
      * 過濾休假的人員，請誇區人員補上
+     * @param assistants 助理人員
+     * @param shiftType 班別Enum
+     * @param date 日期
+     * @param region 地區
+     * @param star_end 日期起迄
      */
     public void removeAssistantLeave(List<Assistants> assistants, ShiftEnum shiftType, LocalDate date, String region,
             ArrayList<LocalDate> star_end) {
 
         // 刪除休假的人員
         assistants.removeIf(assistant -> {
-            LeaveScheduleKey key = new LeaveScheduleKey(assistant.getId(), date);
-            return leaveScheduleRepository.findByKey(key).size() > 0;
+            return leaveScheduleRepository.deleteLeaveAssistan(date,assistant.getId(),true).size() > 0;
         });
 
         // 查看竹北若過多醫師就會回傳true 計算方式:早午晚醫師診次加總+助理休假人數
@@ -463,7 +483,7 @@ public class ScheduleCalculator {
 
         if (region.equals("新竹") && !existsByHighWorkload && isRelevantShift) {
 
-            Sort sort = Sort.by(Sort.Order.asc("totalHours"));
+            Sort sort = Sort.by(Sort.Order.asc("totalHours"),Sort.Order.asc("frontDeskCount"), Sort.Order.asc("chairsideCount"),Sort.Order.asc("floaterCount"));
             List<Assistants> crossAssistant = assistantFinder.findByDayAndShift(date, shiftType.getCode(), 36,
                     "%竹%竹%", sort);
 
@@ -488,6 +508,25 @@ public class ScheduleCalculator {
 
             // 將 filteredList 和 assistants 合併並去重
             Set<Assistants> combinedSet = new LinkedHashSet<>(filteredList);
+
+
+
+                    Collections.sort(assistants,
+                Comparator.comparing(Assistants::getFrontDeskCount).thenComparing(Assistants::getChairsideCount)
+                        .thenComparing(Assistants::getFloaterCount));
+        // if("竹北".equals(region)){
+        //     Collections.sort(assistants,
+        //     Comparator.comparing(Assistants::getTotalHours).thenComparing(Assistants::getPrecedence)
+        //             .thenComparing(Assistants::getFrontDeskCount).thenComparing(Assistants::getChairsideCount)
+        //             .thenComparing(Assistants::getFloaterCount));
+        // }else{
+        //                 Collections.sort(assistants,
+        //     Comparator.comparing(Assistants::getTotalHours).thenComparing(Assistants::getPrecedence).reversed()
+        //             .thenComparing(Assistants::getFrontDeskCount).thenComparing(Assistants::getChairsideCount)
+        //             .thenComparing(Assistants::getFloaterCount));
+        // }
+
+
             combinedSet.addAll(assistants);
 
             // 清空原始列表，並將去重後的結果加回

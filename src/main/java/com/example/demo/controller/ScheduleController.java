@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +26,7 @@ public class ScheduleController {
         }
 
         @GetMapping("/builder")
-        public ResponseEntity<Void> doWork() {
+        public ResponseEntity<?> doWork() {
 
                 // 執行排班功能
                 service.doWork("新竹");
@@ -40,13 +41,11 @@ public class ScheduleController {
                         @RequestParam("startDate") String startDate,
                         @RequestParam("endDate") String endDate,
                         @RequestParam("region") String region) {
-                                System.out.println("測試event");
-                        List<Event> event = service.doQueryLeave(startDate, endDate, region);
 
                 return service.doQueryLeave(startDate, endDate, region);
         }
 
-        @GetMapping("/api/schedules")
+        @GetMapping("/api/schedules") 
         public List<ScheduleViewDTO> doQuerySchedules(
                         @RequestParam("startDate") String startDate,
                         @RequestParam("endDate") String endDate,
@@ -55,20 +54,19 @@ public class ScheduleController {
                 List<ScheduleViewDTO> result = service.doQuerySchedules(startDate, endDate, region);
                 return result;
 
-
         }
 
 }
 
-                // 根據區域查詢排班資料庫
-                // List<ResultSchedule> resutlList = service.doQuery(region);
+// 根據區域查詢排班資料庫
+// List<ResultSchedule> resutlList = service.doQuery(region);
 
-                // resutlList.stream()
-                //                 .map(result -> new Event(
-                //                                 formatter.format2(result.getKey().getShiftType(), result),
-                //                                 ShiftTimeProvider.getStart(result.getKey().getDate(),
-                //                                                 result.getKey().getShiftType()),
-                //                                 ShiftTimeProvider.getEnd(result.getKey().getDate(),
-                //                                                 result.getKey().getShiftType()),
-                //                                 List.of("noon")))
-                //                 .forEach(events::add);
+// resutlList.stream()
+// .map(result -> new Event(
+// formatter.format2(result.getKey().getShiftType(), result),
+// ShiftTimeProvider.getStart(result.getKey().getDate(),
+// result.getKey().getShiftType()),
+// ShiftTimeProvider.getEnd(result.getKey().getDate(),
+// result.getKey().getShiftType()),
+// List.of("noon")))
+// .forEach(events::add);

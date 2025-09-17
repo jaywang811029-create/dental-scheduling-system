@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +28,6 @@ import com.example.demo.dto.ScheduleViewDTO;
 import com.example.demo.dto.ShiftDetail;
 import com.example.demo.jpa.Assistants;
 import com.example.demo.jpa.LeaveSchedule;
-import com.example.demo.jpa.LeaveScheduleKey;
 import com.example.demo.jpa.ResultSchedule;
 import com.example.demo.jpa.ResultScheduleKey;
 import com.example.demo.repository.AssistantRepository;
@@ -61,11 +62,11 @@ public class ScheduleServiceImpl implements ScheduleService {
         Map<LocalDate, List<LeaveSchedule>> groupedByDate = leaveAssistans.stream()
                 .collect(Collectors.groupingBy(leave -> leave.getKey().getDate()));
 
-       List<Event> events = groupedByDate.values().stream()
+        List<Event> events = groupedByDate.values().stream()
                 .flatMap(leaveList -> leaveList.stream())
-                .map(leave -> new Event("今日"+leave.getShiftType()+"："+leave.getName(), leave.getKey().getDate().toString()))
+                .map(leave -> new Event(leave.getShiftType() + "：" + leave.getName(),
+                        leave.getKey().getDate().toString()))
                 .collect(Collectors.toList());
-
 
         return events;
 
@@ -154,7 +155,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         ScheduleDTO nightDTO;
 
         // set1.取得每個禮拜第一天跟最後一天
-        Map<Integer, ArrayList<LocalDate>> dayOfWeekMap = this.getDayOfWeek();
+        Map<Integer, ArrayList<LocalDate>> dayOfWeekMap = this.getScheduleDayOfWeek();
 
         // 當天醫師班表
         List<String> amDrOnDutyList = new ArrayList<>();
@@ -163,21 +164,21 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // 當前日期
         LocalDate currentDate = null;
-        // 計算
-
-        // 休假建立方法單純處理，就把Join砍掉減少複雜度
-        // 判斷假設有休假的話，就把雙邊跑的人員補上去
 
         for (ArrayList<LocalDate> start_end : dayOfWeekMap.values()) {
 
             // set2.醫師班表
             LocalDate startDate = start_end.get(0);
             LocalDate endDate = start_end.get(1);
+            logger.warn("日期起:{},日期尾:{}", startDate, endDate);
             List<LeaveSchedule> leaves = leaveScheduleRepository.findByLeaveDateBetween(startDate, endDate, region);
 
             for (LeaveSchedule doctorLeave : leaves) {
 
                 // logger.warn("日期={},ID={}",doctorLeave.getKey().getDate(),doctorLeave.getKey().getId());
+                if (currentDate != null&&currentDate.toString().equals("2025-09-26")) {
+                    System.out.println("");
+                }
 
                 if (currentDate == null) {
                     // 當月第一天
@@ -186,7 +187,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                     amDTO = new ScheduleDTO();
                     pmDTO = new ScheduleDTO();
                     nightDTO = new ScheduleDTO();
+                   
 
+                   
                     // 處理當日班表邏輯，新增班表
                     processAndSaveDailySchedule(currentDate,
                             region,
@@ -205,6 +208,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
                 }
 
+                 
+
                 // 處理醫師排班
                 if (currentDate.isEqual(doctorLeave.getKey().getDate())) {
                     String shift = doctorLeave.getShiftType().trim();
@@ -220,17 +225,32 @@ public class ScheduleServiceImpl implements ScheduleService {
                         nightDrOnDutyList.add(name);
                     }
                 }
+                   
             }
             amDTO = new ScheduleDTO();
             pmDTO = new ScheduleDTO();
             nightDTO = new ScheduleDTO();
             // 1. 先取得該月的最後一天
-            LocalDate lastDayOfMonth = currentDate.with(TemporalAdjusters.lastDayOfMonth());
+            LocalDate lastDayOfMonth = currentDate.with(TemporalAdjusters.lastDayOfMonth());//30
+
+            //判斷是否為禮拜日
+            Boolean isSunday = lastDayOfMonth.getDayOfWeek() == DayOfWeek.SUNDAY;
 
             // 2. 從該月的最後一天，往回找最接近的禮拜六
             LocalDate lastSaturday = lastDayOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.SATURDAY));
 
-            if (currentDate.isEqual(lastSaturday)) {
+            
+            if (isSunday && currentDate.isEqual(lastSaturday)) {
+                processAndSaveDailySchedule(currentDate,
+                        region,
+                        amDTO,
+                        pmDTO,
+                        nightDTO,
+                        amDrOnDutyList,
+                        pmDrOnDutyList,
+                        nightDrOnDutyList,
+                        start_end);
+            } else if (currentDate.isEqual(lastDayOfMonth)){
                 processAndSaveDailySchedule(currentDate,
                         region,
                         amDTO,
@@ -258,6 +278,8 @@ public class ScheduleServiceImpl implements ScheduleService {
             List<String> nightDrOnDutyList,
             ArrayList<LocalDate> star_end) {
 
+                 logger.warn("測試日期:{}:{}:{}", currentDate);
+
         // 日期
         amDTO.setDate(currentDate.toString());
         pmDTO.setDate(currentDate.toString());
@@ -268,10 +290,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         pmDTO.setDoctors(pmDrOnDutyList);// 2
         nightDTO.setDoctors(nightDrOnDutyList);// 1
 
-        // 醫師人數
-        // 一個醫師 111 (3)
-        // 兩個醫師 121 (4)
-        // 三個醫師 132(6) or 232(最好7) or 131(最壞5)
         // 計算早、午、晚醫師人數，計算人力後加總。ex:121+111+132 [0]=121 [1]=1+2+1
         Integer ampmCalculation = calculation(amDrOnDutyList.size())[0]
                 + calculation(pmDrOnDutyList.size())[0];
@@ -305,14 +323,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         /*-----------------
          | 早午班排班邏輯   |
          ------------------*/
-        if (currentDate.toString().equals("2025-08-09")) {
+        if (currentDate.toString().equals("2025-09-05")) {
             System.out.println("");
         }
 
         // 早午班員工List
         List<Assistants> amAssisList = assistantFinder.findByDayAndShift(
                 currentDate,
-                ShiftEnum.MORNING_AFTERNOON.getCode(), 170, region + "%");
+                ShiftEnum.MORNING_AFTERNOON.getCode(), 168, region + "%");
 
         scheduleCalculator.removeAssistantLeave(amAssisList, ShiftEnum.MORNING_AFTERNOON, currentDate, region,
                 star_end);// 刪除休假員工
@@ -326,6 +344,17 @@ public class ScheduleServiceImpl implements ScheduleService {
             findSupporAssistants(amAssisList, currentDate, remaining, region);
         }
         System.out.println("DEBUG=" + currentDate);
+
+        if ("竹北".equals(region)) {
+            Collections.sort(amAssisList,
+                    Comparator.comparing(Assistants::getFloaterCount).thenComparing(Assistants::getFrontDeskCount));
+        } else {
+            Collections.sort(amAssisList,
+                    Comparator.comparing(Assistants::getFloaterCount).thenComparing(Assistants::getFrontDeskCount));
+        }
+
+        // Collections.sort(amAssisList,
+        // Comparator.comparing(Assistants::getFrontDeskCount).thenComparing(Assistants::getFloaterCount));
 
         // 執行早午班排班邏輯
         scheduleCalculator.evenSchedulingLogic(
@@ -345,7 +374,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 晚班員工
         List<Assistants> nightDayAssisList = assistantFinder.findByDayAndShift(
                 currentDate,
-                ShiftEnum.NIGHT.getCode(), 170, region);
+                ShiftEnum.NIGHT.getCode(), 168, region);
 
         // 優先排單診晚班員工
         scheduleCalculator.singleSchedulingLogic(
@@ -361,7 +390,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 午晚班員工
         List<Assistants> pmDayAssisList = assistantFinder.findByDayAndShift(
                 currentDate,
-                ShiftEnum.AFTERNOON_NIGHT.getCode(), 170, region + "%");
+                ShiftEnum.AFTERNOON_NIGHT.getCode(), 168, region + "%");
 
         nightWorkArray = handleWorkArray(nightWorkArray);
         // 次先排固定午晚班員工
@@ -383,10 +412,17 @@ public class ScheduleServiceImpl implements ScheduleService {
         List<Assistants> allDayAssisList;
         allDayAssisList = assistantFinder.findByDayAndShift(
                 currentDate,
-                ShiftEnum.FULL.getCode(), 170, "%" + region + "%");// 測試
+                ShiftEnum.FULL.getCode(), 168, "%" + region + "%");// 測試
         scheduleCalculator.removeAssistantLeave(allDayAssisList, ShiftEnum.FULL, currentDate, region, star_end);//
         // 刪除休假員工
 
+        if ("竹北".equals(region)) {
+            Collections.sort(allDayAssisList,
+                    Comparator.comparing(Assistants::getFloaterCount).thenComparing(Assistants::getFrontDeskCount));
+        } else {
+            Collections.sort(allDayAssisList,
+                    Comparator.comparing(Assistants::getFloaterCount).thenComparing(Assistants::getFrontDeskCount));
+        }
         // 補充剩餘人數，因可能午晚崗位不同，需獨立出來
         pmNightArray = scheduleCalculator.nightSchedulingLogic(
                 pmNightArray,
@@ -403,6 +439,9 @@ public class ScheduleServiceImpl implements ScheduleService {
         insertResultData(region, currentDate, ShiftEnum.AFTERNOON.getCode(), pmDTO);
         insertResultData(region, currentDate, ShiftEnum.NIGHT.getCode(), nightDTO);
 
+    
+        // test(currentDate, amDTO, pmDTO, nightDTO);
+
         if (pmNightArray[0] != 0 || pmNightArray[1] != 0 || pmNightArray[2] != 0) {
             List<LeaveSchedule> leaveNames = leaveScheduleRepository.findByKeyDateAndRegionAndIsLeave(currentDate,
                     "%" + region + "%", true);
@@ -415,45 +454,26 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .collect(Collectors.toSet());
             Set<String> leaveNamesSet = leaveNames.stream()
                     .map(LeaveSchedule -> {
-                        return LeaveSchedule.getName() + "=" + LeaveSchedule.getRegion();
+                        return LeaveSchedule.getName() + "=" + LeaveSchedule.getKey().getRegion();
                     })
                     .collect(Collectors.toSet());
-            logger.warn("\n{}->{},\n目前空缺=櫃台{},跟診{},流動{},\n可支援人力{},\n目前休假{}\n", region,
-                    pmDTO.getDate(),
-                    pmNightArray[0], pmNightArray[1], pmNightArray[2], names.toString(),
-                    leaveNamesSet.toString());
+
+            // logger.warn("\n{}->{},\n目前空缺=櫃台{},跟診{},流動{},\n可支援人力{},\n目前休假{}\n", region,
+            // pmDTO.getDate(),
+            // pmNightArray[0], pmNightArray[1], pmNightArray[2],
+            // names.toString(),
+            // leaveNamesSet.toString());
+
         }
     }
 
-    void test(ScheduleDTO amDTO, ScheduleDTO pmDTO, ScheduleDTO nightDTO) {
-        List<String> am1 = amDTO.getFrontDesks();
-        List<String> am2 = amDTO.getChairsides();
-        List<String> am3 = amDTO.getFloaters();
-        List<String> pm1 = pmDTO.getFrontDesks();
-        List<String> pm2 = pmDTO.getChairsides();
-        List<String> pm3 = pmDTO.getFloaters();
-        List<String> night1 = nightDTO.getFrontDesks();
-        List<String> night2 = nightDTO.getChairsides();
-        List<String> night3 = nightDTO.getFloaters();
-
-        // 使用 Stream.of 將所有 List 合併成一個 Stream
-        // 然後利用 flatMap 將每個 List 的元素展平成一個單一的 Stream
-        Stream<String> allStringsStream = Stream.of(
-                am1, am2, am3,
-                pm1, pm2, pm3,
-                night1, night2, night3).flatMap(List::stream);
-
-        // 使用 Collectors.groupingBy 來分組並計數
-        Map<String, Long> countMap = allStringsStream
-                .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
-
-        // 印出結果
-        countMap.forEach((key, value) -> System.out.println("檢測=" + key + " : " + value + " 次"));
-
-    }
-
-    /*
+    /**
      * 人力計算
+     * 
+     * @param doctorCount
+     *            醫師人數
+     * @apiNote 計算醫師人數來分配櫃台、跟診、流動人數
+     * @apiNote 一個醫師:111(3)、兩個醫師:121(4)、兩個醫師:121(4)
      */
     public Integer[] calculation(int doctorCount) {
         // 正確的陣列初始化語法
@@ -478,11 +498,16 @@ public class ScheduleServiceImpl implements ScheduleService {
         return result;
     }
 
-    public Map<Integer, ArrayList<LocalDate>> getDayOfWeek() {
+    /**
+     * 計算當月每個禮拜開始跟結束
+     * 
+     * @return 回傳一個星期開始跟結束的Map
+     */
+    public Map<Integer, ArrayList<LocalDate>> getScheduleDayOfWeek() {
 
         // 1. 設定要查詢的年份與月份
         int year = 2025;
-        int month = 8; // 八月
+        int month = 9; // 八月
 
         // 2. 取得該月份的上下文
         YearMonth yearMonth = YearMonth.of(year, month);
@@ -546,7 +571,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 currentDate,
                 currentDate.getDayOfWeek() == DayOfWeek.SATURDAY ? ShiftEnum.MORNING_AFTERNOON.getCode()
                         : ShiftEnum.FULL.getCode(),
-                170,
+                168,
                 "%" + region + "%");// 試改
 
         LocalDate yesterdayDate = currentDate.minusDays(1);
@@ -556,8 +581,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // 刪除休假的人員
         shuffleAssistanList.removeIf(assistant -> {
-            LeaveScheduleKey key = new LeaveScheduleKey(assistant.getId(), currentDate);
-            return leaveScheduleRepository.findByKey(key).size() > 0;
+            return leaveScheduleRepository.deleteLeaveAssistan(currentDate, assistant.getId(), true).size() > 0;
         });
 
         // Collections.shuffle(shuffleAssistanList);//隨機
@@ -569,15 +593,14 @@ public class ScheduleServiceImpl implements ScheduleService {
             shuffleAssistanList = new ArrayList<>();
             shuffleAssistanList = assistantFinder.findByDayAndShift(
                     currentDate,
-                    ShiftEnum.FULL.getCode(), 170, "%" + region + "%");
+                    ShiftEnum.FULL.getCode(), 168, "%" + region + "%");
             // 如果昨天有上全的早班就不排
             shuffleAssistanList.removeIf(assistan -> resultScheduleRepository
                     .countByIsAllDay(assistan.getName(), yesterdayDate.toString()) == 3);
 
             // 刪除休假的人員
             shuffleAssistanList.removeIf(assistant -> {
-                LeaveScheduleKey key = new LeaveScheduleKey(assistant.getId(), currentDate);
-                return leaveScheduleRepository.findByKey(key).size() > 0;
+                return leaveScheduleRepository.deleteLeaveAssistan(currentDate, assistant.getId(), true).size() > 0;
             });
             amAssisList.addAll(shuffleAssistanList.subList(0, shuffleAssistanList.size()));
         }
@@ -651,4 +674,53 @@ public class ScheduleServiceImpl implements ScheduleService {
         return "　　";
     }
 
+    // 計算個崗位數量
+    void test(LocalDate currentDate, ScheduleDTO amDTO, ScheduleDTO pmDTO, ScheduleDTO nightDTO) {
+        List<String> am1 = amDTO.getFrontDesks();
+        List<String> am2 = amDTO.getChairsides();
+        List<String> am3 = amDTO.getFloaters();
+        List<String> pm1 = pmDTO.getFrontDesks();
+        List<String> pm2 = pmDTO.getChairsides();
+        List<String> pm3 = pmDTO.getFloaters();
+        List<String> night1 = nightDTO.getFrontDesks();
+        List<String> night2 = nightDTO.getChairsides();
+        List<String> night3 = nightDTO.getFloaters();
+        // 將每個 List 轉為 Stream，並為每個元素加上職務類別
+        Stream<Map.Entry<String, String>> am1Stream = am1.stream().map(name -> Map.entry(name, "FrontDesks"));
+        Stream<Map.Entry<String, String>> am2Stream = am2.stream().map(name -> Map.entry(name, "Chairsides"));
+        Stream<Map.Entry<String, String>> am3Stream = am3.stream().map(name -> Map.entry(name, "Floaters"));
+        Stream<Map.Entry<String, String>> pm1Stream = pm1.stream().map(name -> Map.entry(name, "FrontDesks"));
+        Stream<Map.Entry<String, String>> pm2Stream = pm2.stream().map(name -> Map.entry(name, "Chairsides"));
+        Stream<Map.Entry<String, String>> pm3Stream = pm3.stream().map(name -> Map.entry(name, "Floaters"));
+        Stream<Map.Entry<String, String>> night1Stream = night1.stream().map(name -> Map.entry(name, "FrontDesks"));
+        Stream<Map.Entry<String, String>> night2Stream = night2.stream().map(name -> Map.entry(name, "Chairsides"));
+        Stream<Map.Entry<String, String>> night3Stream = night3.stream().map(name -> Map.entry(name, "Floaters"));
+
+        // 合併所有 Stream
+        Stream<Map.Entry<String, String>> allStreams = Stream.of(
+                am1Stream, am2Stream, am3Stream,
+                pm1Stream, pm2Stream, pm3Stream,
+                night1Stream, night2Stream, night3Stream).flatMap(s -> s);
+
+        // 按人名和職務分組計數
+        Map<String, Map<String, Long>> countMap = allStreams
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey, // 按人名分組
+                        Collectors.groupingBy(
+                                Map.Entry::getValue, // 按職務分組
+                                Collectors.counting() // 計數
+                        )));
+
+        // 印出結果
+        countMap.forEach((name, roleCounts) -> {
+            roleCounts.forEach(
+                    (role, count) -> logger.warn(currentDate + " 員工: " + name + " 職位:" + role + ": " + count + " 次"));
+        });
+
+    }
+
 }
+
+// 櫃台、跟診、流動次數
+// 修六根一個幾次
+// 總時數

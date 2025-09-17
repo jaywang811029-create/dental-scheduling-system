@@ -14,7 +14,7 @@ import com.example.demo.jpa.LeaveScheduleKey;
 @Repository
 public interface LeaveScheduleRepository extends JpaRepository<LeaveSchedule, LeaveScheduleKey> {
 
-        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.key.region = :region AND ls.key.leaveId like 'D%' ORDER BY  ls.key.date")
         List<LeaveSchedule> findByLeaveDateBetween(@Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate,
                         @Param("region") String region);
@@ -32,20 +32,21 @@ public interface LeaveScheduleRepository extends JpaRepository<LeaveSchedule, Le
                         @Param("minWorkload") int minWorkload,
                         @Param("targetDate") LocalDate targetDate);
 
-        List<LeaveSchedule> findByKey(LeaveScheduleKey key);
-
-        // List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(LocalDate date, String
-        // region, boolean isLeave);
-
-        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date = :date AND ls.region like :region AND ls.isLeave = :isLeave")
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date = :date AND ls.key.region like :region AND ls.isLeave = :isLeave")
         List<LeaveSchedule> findByKeyDateAndRegionAndIsLeave(
                         @Param("date") LocalDate date,
                         @Param("region") String region,
                         @Param("isLeave") boolean isLeave);
 
-        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.region = :region AND ls.key.leaveId like 'A%' ORDER BY  ls.key.date")
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date BETWEEN :startDate AND :endDate AND ls.key.region = :region AND ls.key.leaveId like 'A%' ORDER BY  ls.key.date")
         List<LeaveSchedule> findByAssistanLeaveDate(@Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate,
                         @Param("region") String region);
+
+        @Query("SELECT ls FROM LeaveSchedule ls WHERE ls.key.date = :date AND ls.key.leaveId like :leaveId AND ls.isLeave = :isLeave")
+        List<LeaveSchedule> deleteLeaveAssistan(
+                        @Param("date") LocalDate date,
+                        @Param("leaveId") String leaveId,
+                        @Param("isLeave") boolean isLeave);
 
 }

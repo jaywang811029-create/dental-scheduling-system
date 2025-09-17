@@ -24,8 +24,8 @@ public class AssistantFinder {
     public List<Assistants> findByDayAndShift(LocalDate localDate, String shiftType, Integer totalHours,
             String region) {
         // 是否降冪排序
-        Sort defaultSort = region.contains("新竹") ? Sort.by(Sort.Order.desc("precedence"), Sort.Order.asc("totalHours"))
-                : Sort.by(Sort.Order.asc("precedence"), Sort.Order.asc("totalHours"));
+        Sort defaultSort = region.contains("新竹") ? Sort.by(Sort.Order.desc("precedence"), Sort.Order.asc("totalHours"),Sort.Order.asc("frontDeskCount"), Sort.Order.asc("chairsideCount"),Sort.Order.asc("floaterCount"))
+                : Sort.by(Sort.Order.asc("precedence"), Sort.Order.asc("totalHours"),Sort.Order.asc("frontDeskCount"), Sort.Order.asc("chairsideCount"),Sort.Order.asc("floaterCount"));
         return findByDayAndShift(localDate, shiftType, totalHours,
                 region, defaultSort);
                 

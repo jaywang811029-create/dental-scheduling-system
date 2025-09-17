@@ -13,6 +13,9 @@ public class Assistants {
     private String id;
 
     private String name;
+    private Integer frontDeskCount = 0;
+    private Integer floaterCount = 0;
+    private Integer chairsideCount = 0;
     private boolean isFrontDesk;
     private boolean isFloater;
     private boolean isChairside;
@@ -25,10 +28,14 @@ public class Assistants {
     @OneToOne(mappedBy = "assistant")
     private WeeklySchedule weeklySchedule;
 
-    public Assistants(String id, String name, boolean isFrontDesk, boolean isFloater, boolean isChairside,
-            String region, Integer totalHours, Integer boosHours, Integer precedence, WeeklySchedule weeklySchedule) {
+    public Assistants(String id, String name, Integer frontDeskCount, Integer floaterCount, Integer chairsideCount,
+            boolean isFrontDesk, boolean isFloater, boolean isChairside, String region, Integer totalHours,
+            Integer boosHours, Integer precedence, WeeklySchedule weeklySchedule) {
         this.id = id;
         this.name = name;
+        this.frontDeskCount = frontDeskCount;
+        this.floaterCount = floaterCount;
+        this.chairsideCount = chairsideCount;
         this.isFrontDesk = isFrontDesk;
         this.isFloater = isFloater;
         this.isChairside = isChairside;
@@ -87,7 +94,6 @@ public class Assistants {
         this.isChairside = isChairside;
     }
 
-
     public Integer getTotalHours() {
         return totalHours;
     }
@@ -107,7 +113,6 @@ public class Assistants {
     public Assistants() {
     }
 
-
     public Integer getPrecedence() {
         return precedence;
     }
@@ -120,22 +125,41 @@ public class Assistants {
         return region;
     }
 
-
     public void setRegion(String region) {
         this.region = region;
     }
 
+    public Integer getFrontDeskCount() {
+        return frontDeskCount;
+    }
+
+    public void setFrontDeskCount(Integer frontDeskCount) {
+        this.frontDeskCount = frontDeskCount;
+    }
+
+    public Integer getFloaterCount() {
+        return floaterCount;
+    }
+
+    public void setFloaterCount(Integer floaterCount) {
+        this.floaterCount = floaterCount;
+    }
+
+    public Integer getChairsideCount() {
+        return chairsideCount;
+    }
+
+    public void setChairsideCount(Integer chairsideCount) {
+        this.chairsideCount = chairsideCount;
+    }
 
     @Override
     public String toString() {
-        return "Assistants [id=" + id + ", name=" + name + ", isFrontDesk=" + isFrontDesk + ", isFloater=" + isFloater
-                + ", isChairside=" + isChairside + ", region=" + region + ", totalHours=" + totalHours + ", boosHours="
-                + boosHours + ", precedence=" + precedence + ", weeklySchedule=" + weeklySchedule + "]";
+        return "Assistants [id=" + id + ", name=" + name + ", frontDeskCount=" + frontDeskCount + ", floaterCount="
+                + floaterCount + ", chairsideCount=" + chairsideCount + ", isFrontDesk=" + isFrontDesk + ", isFloater="
+                + isFloater + ", isChairside=" + isChairside + ", region=" + region + ", totalHours=" + totalHours
+                + ", boosHours=" + boosHours + ", precedence=" + precedence + ", weeklySchedule=" + weeklySchedule
+                + "]";
     }
-
-
-
-
-    
 
 }

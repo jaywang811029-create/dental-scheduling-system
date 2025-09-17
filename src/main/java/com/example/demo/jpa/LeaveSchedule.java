@@ -14,17 +14,15 @@ public class LeaveSchedule {
     private String name;
     private String shiftType;
     private boolean isLeave;
-    private String region;
 
 
     
 
-    public LeaveSchedule(LeaveScheduleKey key, String name, String shiftType, boolean isLeave, String region) {
+    public LeaveSchedule(LeaveScheduleKey key, String name, String shiftType, boolean isLeave) {
         this.key = key;
         this.name = name;
         this.shiftType = shiftType;
         this.isLeave = isLeave;
-        this.region = region;
     }
 
     // JPA 規範要求必須提供無參數建構子
@@ -55,13 +53,6 @@ public class LeaveSchedule {
         this.isLeave = isLeave;
     }
 
-    public String getRegion() {
-        return region;
-    }
-
-    public void setRegion(String region) {
-        this.region = region;
-    }
 
     public String getName() {
         return name;
@@ -77,7 +68,7 @@ public class LeaveSchedule {
     @Override
     public String toString() {
         return "LeaveSchedule [key=" + key + ", name=" + name + ", shiftType=" + shiftType + ", isLeave=" + isLeave
-                + ", region=" + region + "]";
+                 + "]";
     }
 
     
